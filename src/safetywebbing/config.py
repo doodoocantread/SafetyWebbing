@@ -178,6 +178,9 @@ AGENTS: dict[str, Agent] = {
     # claude_bridge.py (agent_image_hackingbuddy/safetywebbing_hb_agent/) replaces
     # hackingBuddy's LLM calls with the Claude Code CLI, authenticated the same way
     # PentestGPT is — an ephemeral copy of the host's Claude Code session.
+    # Supports "direct" too: the same wrapper runs on the host out of a `.hb-venv`, driving
+    # the host's own Claude Code session (engines/local.py). Unlike PentestGPT's direct path
+    # the model only gets HTTP capabilities (hackingBuddy's web use-case), never a shell.
     "hackingbuddy_claude": Agent(
         key="hackingbuddy_claude",
         label="hackingBuddyGPT (Claude Code session)",
@@ -187,7 +190,7 @@ AGENTS: dict[str, Agent] = {
             "Use-case web của hackingBuddyGPT; xác thực bằng phiên Claude Code của host, "
             "không cần API key."
         ),
-        modes=("docker",),
+        modes=("docker", "direct"),
     ),
 }
 

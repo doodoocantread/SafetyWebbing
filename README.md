@@ -194,9 +194,9 @@ You choose the agent per scan, independently of the run mode. Every agent writes
 |---|---|---|---|---|
 | `pentestgpt` (default) | `safetywebbing-agent` | Your host's Claude Code OAuth session (a temporary copy is mounted) | `docker`, `direct` | PentestGPT agent, vendored into this repo. |
 | `hackingbuddy` | `safetywebbing-hackingbuddy` | An LLM API key through litellm, entered in the UI per scan or set in the server environment | `docker` only | The **web** use-case of [hackingBuddyGPT](https://github.com/ipa-lab/hackingBuddyGPT) (`WebTestingWithExplanation`). |
-| `hackingbuddy_claude` | `safetywebbing-hackingbuddy` (same image) | Your host's Claude Code OAuth session (a temporary copy is mounted, exactly like `pentestgpt`) | `docker` only | The same hackingBuddyGPT use-case, with its LLM calls routed through the Claude Code CLI instead of an API key — see below. No key, no UI field. |
+| `hackingbuddy_claude` | `safetywebbing-hackingbuddy` (same image) | Your host's Claude Code OAuth session (`docker`: a temporary copy is mounted; `direct`: the host's own session) | `docker`, `direct` | The same hackingBuddyGPT use-case, with its LLM calls routed through the Claude Code CLI instead of an API key — see below. No key, no UI field. |
 
-SafetyWebbing includes only hackingBuddyGPT's **web** use-case, which takes a URL. That fits the safety model of loopback whitelist plus container isolation. Its privilege-escalation use-cases, which run real commands over SSH or a local shell, are deliberately **not** included, and hackingBuddyGPT has no `direct` path.
+SafetyWebbing includes only hackingBuddyGPT's **web** use-case, which takes a URL. Its privilege-escalation use-cases, which run real commands over SSH or a local shell, are deliberately **not** included. Because the web use-case only exposes HTTP capabilities to the model (never a shell), `hackingbuddy_claude` can also run in `direct` mode — unlike the `hackingbuddy` (API-key) agent, which stays container-only. The `direct` path still carries the usual "no isolation" caveat below, but its blast radius is narrower than PentestGPT's FULL_ACCESS shell.
 
 ### Building and configuring hackingBuddyGPT
 
@@ -217,7 +217,7 @@ A small wrapper (`agent_image_hackingbuddy/safetywebbing_hb_agent/`) accepts the
 
 > **Safety note:** this key goes into the full-access agent container, which reads untrusted web content. The container is the isolation boundary. This is a necessary trade-off because `hackingbuddy` requires an LLM key to run.
 
-**No key at all (`hackingbuddy_claude`).** This agent authenticates the same way `pentestgpt` does: the engine mounts an ephemeral copy of your host's logged-in Claude Code session into the container, and the image's Claude Code CLI (installed alongside hackingBuddyGPT, same as the PentestGPT image) uses it. `--model` takes a plain Claude Code id (`claude-sonnet-5-5`, the default), not a litellm string.
+**No key at all (`hackingbuddy_claude`).** This agent authenticates the same way `pentestgpt` does. In `docker` mode the engine mounts an ephemeral copy of your host's logged-in Claude Code session into the container, and the image's Claude Code CLI (installed alongside hackingBuddyGPT, same as the PentestGPT image) uses it. In `direct` mode the wrapper runs on the host out of its own `.hb-venv` and drives the host's Claude Code session straight (see [Run modes](#run-modes-docker-vs-direct)). Either way `--model` takes a plain Claude Code id (`claude-sonnet-5-5`, the default), not a litellm string.
 
 hackingBuddyGPT's own LLM entry point (`LiteLLM.raw_completion`, in `hackingBuddyGPT/utils/llm.py`) is replaced in-process by `claude_bridge.py`, which calls `claude -p` instead of litellm. The Claude CLI has no OpenAI-style function calling, so tool use (the web agent's `HTTPRequest`/`SubmitFlag`/`EndRun` capabilities) is **emulated** with structured output: each turn, Claude is asked for `{"message": ..., "tool_calls": [...]}` against a JSON schema built from the offered tools, validated, and retried once if malformed. This is less reliable than hackingBuddyGPT's native tool-calling against OpenAI-style APIs — watch for turns where it degrades to a plain-text reply with no tool call.
 
@@ -226,24 +226,28 @@ hackingBuddyGPT's own LLM entry point (`LiteLLM.raw_completion`, in `hackingBudd
 | Mode | How it runs | Isolation | Use when |
 |---|---|---|---|
 | `docker` (default) | `docker run` of the agent image | **Yes.** The container is the safety boundary | Default, demos, or any target you can't fully trust |
-| `direct` | Runs the `pentestgpt-agent` CLI as an ordinary host process | **No.** The agent has full access to your machine | Fast iteration on a dev machine without Docker |
+| `direct` | Runs the chosen agent's CLI (`pentestgpt` or `hackingbuddy_claude`) as an ordinary host process | **No.** The agent runs uncontained on your machine | Fast iteration on a dev machine without Docker |
 
 The whitelist, fixed goal, audit log, adapter and report are **identical** in both modes. `direct` can only be enabled from the **server side**. A request or the UI can't turn it on.
 
 ### Enabling direct mode
 
-You need the Claude Code CLI logged in on the machine, plus the agent installed in its **own** venv, because the host app never imports the agent.
+You need the Claude Code CLI logged in on the machine, plus the agent you want installed in its **own** venv, because the host app never imports the agent. Install whichever agent(s) you plan to run directly:
 
 ```bash
-# 1. Install the agent into a separate venv. Use Python 3.12 (newer versions may lack a pyyaml wheel).
+# PentestGPT agent → .agent-venv. Use Python 3.12 (newer versions may lack a pyyaml wheel).
 uv venv .agent-venv --python 3.12
 uv pip install --python .agent-venv/Scripts/python.exe ./agent_image   # Linux/macOS: .agent-venv/bin/python
 
-# 2. Start the server with the opt-in (PowerShell: $env:SAFETYWEBBING_ALLOW_DIRECT = "1")
+# hackingbuddy_claude → .hb-venv (hackingBuddyGPT requires Python 3.13).
+uv venv .hb-venv --python 3.13
+uv pip install --python .hb-venv/Scripts/python.exe ./agent_image_hackingbuddy   # Linux/macOS: .hb-venv/bin/python
+
+# Then start the server with the opt-in (PowerShell: $env:SAFETYWEBBING_ALLOW_DIRECT = "1")
 SAFETYWEBBING_ALLOW_DIRECT=1 uv run uvicorn safetywebbing.api:app --port 8000
 ```
 
-The engine finds `.agent-venv` on its own. To use another command, set `SAFETYWEBBING_AGENT_CMD` (for example `uv run --project agent_image pentestgpt-agent`). In the UI, the **Run mode** field then unlocks "Directly on this machine". `GET /api/modes` reports which modes are available and why not.
+Each engine finds its own venv (`.agent-venv` / `.hb-venv`) on its own. To use another command, set `SAFETYWEBBING_AGENT_CMD` (PentestGPT) or `SAFETYWEBBING_HB_AGENT_CMD` (hackingbuddy_claude). In the UI, the **Run mode** field unlocks "Directly on this machine" once at least one direct agent is installed; `direct` then applies per scan to whichever agent you pick, provided that agent's CLI is present. `GET /api/modes` reports whether direct is available at all, and `GET /api/agents` lists each agent's supported modes.
 
 Notes on `direct`: the host's `ANTHROPIC_API_KEY` (used by the labeler) is removed from the agent's environment to match the container, the whole process tree is killed on timeout, and every scan records its `mode` in `runs/audit.log`.
 
@@ -272,7 +276,8 @@ A `failed` run is reported honestly. "No vulnerability found" and "the run error
 | Environment variable | Purpose |
 |---|---|
 | `SAFETYWEBBING_ALLOW_DIRECT=1` | Allow `direct` run mode. Server-side opt-in only. |
-| `SAFETYWEBBING_AGENT_CMD` | Command used to start the agent in `direct` mode. |
+| `SAFETYWEBBING_AGENT_CMD` | Command used to start the PentestGPT agent in `direct` mode. |
+| `SAFETYWEBBING_HB_AGENT_CMD` | Command used to start the `hackingbuddy_claude` agent in `direct` mode. |
 | `ANTHROPIC_API_KEY` | Enables LLM report labels. Also usable by hackingBuddyGPT. |
 | `SAFETYWEBBING_LLM_MODEL` | Model used by the LLM report labeler. |
 | `GEMINI_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY` | Provider keys for hackingBuddyGPT. |

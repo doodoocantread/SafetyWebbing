@@ -11,6 +11,7 @@ from __future__ import annotations
 import ipaddress
 import os
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -230,13 +231,20 @@ class LLMProvider:
     key: str  # ui/request key, e.g. "gemini"
     label: str
     env_name: str  # the environment variable litellm reads
+    api_hosts: tuple[str, ...] = ()  # the only hosts the container may reach for this provider
 
 
 LLM_PROVIDERS: dict[str, LLMProvider] = {
-    "anthropic": LLMProvider("anthropic", "Anthropic (Claude)", "ANTHROPIC_API_KEY"),
-    "gemini": LLMProvider("gemini", "Google Gemini", "GEMINI_API_KEY"),
-    "openai": LLMProvider("openai", "OpenAI", "OPENAI_API_KEY"),
-    "openrouter": LLMProvider("openrouter", "OpenRouter", "OPENROUTER_API_KEY"),
+    "anthropic": LLMProvider(
+        "anthropic", "Anthropic (Claude)", "ANTHROPIC_API_KEY", ("api.anthropic.com",)
+    ),
+    "gemini": LLMProvider(
+        "gemini", "Google Gemini", "GEMINI_API_KEY", ("generativelanguage.googleapis.com",)
+    ),
+    "openai": LLMProvider("openai", "OpenAI", "OPENAI_API_KEY", ("api.openai.com",)),
+    "openrouter": LLMProvider(
+        "openrouter", "OpenRouter", "OPENROUTER_API_KEY", ("openrouter.ai",)
+    ),
 }
 
 # Canonical list of the env vars an llm_api_key agent may use (engine + API share it).
@@ -253,6 +261,73 @@ def validate_llm_provider(provider: str) -> str:
             f"unknown llm provider {provider!r}; valid: {', '.join(LLM_PROVIDERS)}"
         )
     return provider
+
+
+# --- Container egress policy -----------------------------------------------------
+#
+# The scan container runs a FULL_ACCESS agent that reads untrusted web content, so it
+# must be assumed prompt-injectable. Validating `--target` is not enough: nothing
+# stops the agent's shell from reaching anywhere else. Inside the container an
+# entrypoint firewall (agent_image*/sw-entrypoint.sh) therefore allows OUTBOUND traffic
+# only to (1) the target's own port on the host gateway and (2) the LLM API hosts below,
+# and rejects everything else — other host ports (incl. this app's API), the LAN, cloud
+# metadata, the internet. The allowlist is resolved to IPs when the container starts, so
+# it is IP-level: a different site behind the same CDN address is not distinguished.
+
+# Hosts the Claude Code CLI (the PentestGPT agent's backend) needs: the API plus the
+# OAuth token-refresh endpoints. A host missing here fails closed (the scan cannot
+# authenticate) — add it with SAFETYWEBBING_EXTRA_ALLOW_DOMAINS rather than opening up.
+CLAUDE_OAUTH_HOSTS: tuple[str, ...] = (
+    "api.anthropic.com",
+    "console.anthropic.com",
+    "platform.claude.com",
+    "claude.ai",
+)
+
+# Set by whoever starts the SERVER (like DIRECT_MODE_ENV); never from a request.
+EXTRA_EGRESS_ENV = "SAFETYWEBBING_EXTRA_ALLOW_DOMAINS"
+
+# Plain DNS names only: no IP literals, wildcards, ports or anything shell-special. The
+# value reaches a root entrypoint script, so be strict here and again there.
+_LABEL = r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+_DOMAIN_RE = re.compile(rf"(?=.{{1,253}}\Z){_LABEL}(\.{_LABEL})+")
+
+
+class InvalidEgressDomain(ValueError):
+    """Raised when an egress allowlist entry is not a plain DNS name."""
+
+
+def validate_egress_domain(domain: str) -> str:
+    domain = domain.strip().lower()
+    if not _DOMAIN_RE.fullmatch(domain) or re.fullmatch(r"[0-9.]+", domain):
+        raise InvalidEgressDomain(f"invalid egress domain {domain!r}")
+    return domain
+
+
+def extra_egress_domains(env: Mapping[str, str] | None = None) -> tuple[str, ...]:
+    """Operator-added allowlist entries from $SAFETYWEBBING_EXTRA_ALLOW_DOMAINS (comma
+    separated). Raises InvalidEgressDomain on a bad entry rather than silently
+    widening or dropping the policy."""
+    raw = (os.environ if env is None else env).get(EXTRA_EGRESS_ENV, "")
+    return tuple(validate_egress_domain(d) for d in raw.split(",") if d.strip())
+
+
+class InvalidTargetPort(ValueError):
+    """Raised when a target URL has an unusable port."""
+
+
+def target_port(url: str) -> int:
+    """The TCP port a scan target listens on (explicit, else the scheme default)."""
+    parts = urlsplit(url)
+    try:
+        port = parts.port
+    except ValueError:
+        raise InvalidTargetPort(f"invalid port in target {url!r}") from None
+    if port is None:  # not `port or default`: an explicit :0 must be rejected, not become 80
+        port = {"http": 80, "https": 443}.get(parts.scheme)
+    if port is None or not 1 <= port <= 65535:
+        raise InvalidTargetPort(f"invalid port in target {url!r}")
+    return port
 
 
 # --- Agent timeout ---------------------------------------------------------------
@@ -313,7 +388,7 @@ def validate_project(name: str | None) -> str | None:
 
 # A run_id ends up in `runs_root / run_id`, so it must not be able to escape
 # that directory (path traversal) or name anything but a plain run folder.
-_RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+_RUN_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
 
 
 class InvalidRunId(ValueError):
@@ -327,6 +402,7 @@ def validate_run_id(run_id: str) -> str:
     escape the runs directory. This is the gate every path-building endpoint
     must pass user input through.
     """
-    if not _RUN_ID_RE.match(run_id) or run_id in (".", "..") or ".." in run_id:
+    # fullmatch, not match + `$`: `$` also matches before a trailing newline.
+    if not _RUN_ID_RE.fullmatch(run_id) or run_id in (".", "..") or ".." in run_id:
         raise InvalidRunId(f"invalid run_id {run_id!r}")
     return run_id

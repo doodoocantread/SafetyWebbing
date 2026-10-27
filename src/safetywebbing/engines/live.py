@@ -4,6 +4,16 @@ The agent runs with FULL_ACCESS, so it only ever runs inside a container; the
 container is the isolation boundary (ARCHITECTURE.md §2.3). This class never
 imports the agent or unified-agent — it shells out to `docker run`.
 
+Isolation (what makes the container a real boundary, not just a wrapper):
+  - Filesystem: only THIS run's folder is mounted, never the whole `runs/` tree, so the
+    agent cannot read or rewrite `audit.log`, `triage.json` or other runs' results.
+  - Network: an entrypoint firewall inside the container allows outbound traffic only to
+    the target's port on the host and to the LLM API hosts (config.py "Container egress
+    policy"). The container is not trusted to police itself — it starts with just enough
+    capability to install the rules, then the agent runs with every capability dropped.
+  - Resources: memory / CPU / pids caps, no swap; all other capabilities dropped and
+    `no-new-privileges` set.
+
 Two integration seams handled here (ARCHITECTURE.md §7):
   - Auth: the "claude" backend authenticates with the host's Claude Code OAuth
     session. The access token expires every few hours, and the CLI refreshes it
@@ -28,7 +38,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
-from ..config import LLM_KEY_ENV
+from ..config import (
+    CLAUDE_OAUTH_HOSTS,
+    LLM_KEY_ENV,
+    LLM_PROVIDERS,
+    extra_egress_domains,
+    target_port,
+    validate_run_id,
+)
 from .base import RunResult, ScanFailed, load_run_result  # noqa: F401 - ScanFailed re-exported
 
 # Target host as seen from inside the container (Docker Desktop / host-gateway).
@@ -91,6 +108,29 @@ class LiveAgentEngine:
     # to that one provider's SERVER env var.
     llm_api_key: str | None = None
     llm_env_name: str | None = None
+    # Resource caps for the scan container (a FULL_ACCESS agent must not be able to
+    # exhaust the host). Swap is disabled by setting --memory-swap equal to --memory.
+    memory: str = "2g"
+    cpus: float = 2.0
+    pids_limit: int = 512
+
+    def egress_domains(self, env: Mapping[str, str] | None = None) -> tuple[str, ...]:
+        """DNS names the container may reach besides the target: the LLM API(s) this
+        agent needs, plus operator additions. Anything else is rejected in-container."""
+        env = os.environ if env is None else env
+        if self.auth == "claude_oauth":
+            hosts: list[str] = list(CLAUDE_OAUTH_HOSTS)
+        else:
+            # Same provider selection as build_command's key forwarding.
+            names = (self.llm_env_name,) if self.llm_env_name else self.llm_key_env
+            hosts = [
+                h
+                for p in LLM_PROVIDERS.values()
+                if p.env_name in names and (p.env_name == self.llm_env_name or env.get(p.env_name))
+                for h in p.api_hosts
+            ]
+        hosts += extra_egress_domains(env)
+        return tuple(dict.fromkeys(hosts))  # de-duplicated, order kept
 
     def build_command(
         self,
@@ -113,7 +153,8 @@ class LiveAgentEngine:
         the container by name only, so the secret stays out of the argv.
         """
         env = os.environ if env is None else env
-        runs_abs = str(self.runs_root.resolve())
+        run_id = validate_run_id(run_id)  # becomes part of a mount path below
+        run_dir = self.runs_root.resolve() / run_id
         cmd = [
             "docker", "run", "--rm",
             # So a cancel/timeout can `docker kill` the real container, not just
@@ -121,8 +162,24 @@ class LiveAgentEngine:
             "--name", container_name(run_id),
             # Reach the host's loopback services from inside the container.
             "--add-host", "host.docker.internal:host-gateway",
-            # Persist runs/ back to the host so the backend can read results.
-            "-v", f"{runs_abs}:/work/runs",
+            # Share ONLY this run's folder back to the host — never the whole runs/ tree
+            # (audit.log, triage.json and other runs' results stay out of reach).
+            "-v", f"{run_dir}:/work/runs/{run_id}",
+            # Resource caps; --memory-swap == --memory means no swap.
+            "--memory", self.memory, "--memory-swap", self.memory,
+            "--cpus", str(self.cpus), "--pids-limit", str(self.pids_limit),
+            # Drop every capability, then add back only what the entrypoint needs to
+            # install the egress firewall and switch to the unprivileged agent user.
+            # It drops ALL of them again before the agent starts (sw-entrypoint.sh).
+            "--cap-drop", "ALL",
+            "--cap-add", "NET_ADMIN", "--cap-add", "SETUID",
+            "--cap-add", "SETGID", "--cap-add", "SETPCAP",
+            "--security-opt", "no-new-privileges",
+            # Egress policy for the entrypoint firewall (non-secret config, so it may
+            # sit on the argv; secrets are only ever forwarded by name below).
+            "-e", "SAFETYWEBBING_FIREWALL=1",
+            "-e", f"SAFETYWEBBING_TARGET_PORT={target_port(target)}",
+            "-e", f"SAFETYWEBBING_ALLOW_DOMAINS={','.join(self.egress_domains(env))}",
         ]
         if self.auth == "llm_api_key":
             # Forward keys by NAME only, so no value hits the argv. When a provider
@@ -188,6 +245,16 @@ class LiveAgentEngine:
             shutil.copy2(host_json, tmp_root / ".claude.json")
         return tmp_root
 
+    def _prepare_run_dir(self, run_id: str) -> Path:
+        """Create the one folder shared with the container. Docker would otherwise create
+        it root-owned, and the agent (uid 1000) could not write its results. World-writable
+        is acceptable here: it is a per-run folder of a single-user tool, and nothing else
+        (audit log, triage, other runs) lives in or below it."""
+        run_dir = self.runs_root.resolve() / validate_run_id(run_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        run_dir.chmod(0o777)
+        return run_dir
+
     async def _kill_container(self, run_id: str) -> None:
         """Best-effort `docker kill` on the named container. Needed on both the
         timeout path and a user cancel: killing the attached `docker run` CLI
@@ -204,6 +271,7 @@ class LiveAgentEngine:
     async def run(self, *, target: str, goal: str, run_id: str) -> RunResult:
         # Only OAuth agents need the host credential copy; an llm_api_key agent
         # gets its key forwarded by build_command instead.
+        self._prepare_run_dir(run_id)
         creds_root = self._prepare_creds() if self.auth == "claude_oauth" else None
         creds_dir = (creds_root / ".claude") if creds_root else None
         claude_json = creds_root / ".claude.json" if creds_root else None

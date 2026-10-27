@@ -20,7 +20,7 @@
   "provenance": {
     "repo_commit": "bf0b76e93830177dfa91adc85d795dc86713cf87",
     "repo_dirty": false,
-    "protocol_sha256": "956f19cd21197da526bce5a4b5bc1d9f4019520ad91b64cbecfa4d87b6309b64",
+    "protocol_sha256": "0aeb411b00b9ef2353c5eeb39ffeb2d2b041c8a4c0e06ca246185c893e52c757",
     "manifest_sha256": null,
     "target_reference": "dvwa a1978a2fed195acd093010af6395f86a281537ca, security level low, authentication disabled"
   },

@@ -1,6 +1,6 @@
 # Giao thức benchmark SafetyWebbing
 
-> **Trạng thái:** bản nháp v0.1.2 (2026-10-27). Mọi ngưỡng ở mục 4 được **đóng băng khi commit
+> **Trạng thái:** bản nháp v0.1.3 (2026-10-27). Mọi ngưỡng ở mục 4 được **đóng băng khi commit
 > kết quả đầu tiên của bậc A** (mục 8). Kết quả `smoke` và `pilot` được lưu trong
 > `benchmark/results/` nhưng **không** kích hoạt đóng băng. Sau khi đóng băng chỉ được sửa qua mục
 > [Sửa đổi](#10-sửa-đổi), ghi rõ ngày và lý do. Mục đích: ngưỡng được chọn **trước** khi thấy số
@@ -95,9 +95,14 @@ kiểm tra sau khi chạy dựa trên trace và stdout (task 12):
 ## 7. Ghi lại để tái lập
 
 Mỗi file kết quả ghi: commit và cờ working-tree-bẩn của SafetyWebbing, băm SHA-256 của PROTOCOL.md và
-của manifest dùng để chấm, phiên bản/commit thực tế của target, engine, model, seed, thời điểm,
-`cost_usd` do CLI báo, thời lượng, trạng thái từng run và lý do bị loại. Trang `/benchmark` hiện
-nhãn "kết quả cũ" khi commit hiện tại khác commit đã chạy.
+của manifest dùng để chấm, phiên bản/commit thực tế của target, engine, model, thời điểm, `cost_usd`
+do CLI báo, thời lượng, trạng thái run và nguyên nhân lỗi (`failure_kind`). Seed xáo trộn thứ tự chạy
+và lý do bị loại khỏi tỉ lệ sẽ được thêm cùng runner chính thức (chưa có); các run `smoke` không mang
+hai trường này.
+
+Trang `/benchmark` hiện nhãn "kết quả cũ" khi **giao thức hoặc manifest đã đổi** sau khi run được ghi
+(so băm). Commit đã chạy luôn hiện ở cột Xuất xứ, nhưng một commit khác không tự làm kết quả cũ: hầu
+hết commit không đổi cách chấm.
 
 ## 8. Các bậc chạy
 
@@ -137,3 +142,4 @@ Chi phí chưa đo cho Sonnet/Haiku; sau pilot sẽ tính lại ngân sách trư
 | 2026-10-27 | Bản nháp v0.1 | Khởi tạo, trước mọi kết quả |
 | 2026-10-27 | v0.1.1: kết quả `smoke`/`pilot` không kích hoạt đóng băng ngưỡng | Ba run đầu tiên (suite `smoke`) chạy bằng script thử, không qua runner chính thức, và bậc pilot vốn "không dùng để báo kết quả" (mục 8). Chưa có ngưỡng nào bị đổi |
 | 2026-10-27 | v0.1.2, mục 9: thêm hai giới hạn rút ra từ run smoke đầu tiên (độ sâu của oracle; finding chỉ là đoạn trích) | Quan sát trên dữ liệu thật, không đổi ngưỡng hay cách chấm. Quyết định về oracle "injectability" để mở, cần chốt trước bậc A |
+| 2026-10-27 | v0.1.3, mục 7: nhãn "kết quả cũ" dựa trên băm giao thức/manifest, không dựa trên commit; seed và lý do bị loại hoãn đến runner | Sửa văn bản cho khớp với cài đặt. Không đổi ngưỡng hay cách chấm |

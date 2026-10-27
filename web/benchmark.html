@@ -79,7 +79,7 @@ function StatusBanner({data}) {
     </div></div></div>;
 }
 
-function CellsTable({cells, thresholds}) {
+function CellsTable({cells}) {
   if (!cells.length) return <div className="empty">{tr("Chưa có run nào được ghi vào benchmark/results/.", "No runs recorded in benchmark/results/ yet.")}</div>;
   const showFp = cells.some(c => c.false_positive);
   return <div className="tbl-wrap"><table className="tbl">
@@ -263,7 +263,7 @@ function BenchmarkPage() {
         <div className="card"><div className="card-b">
           <Tiles s={data.summary} />
           <div className="label" style={{marginTop: 14}}>{tr("Kết quả theo ô (target × scan × model)", "Results per cell (target × scan × model)")}</div>
-          <CellsTable cells={data.cells} thresholds={data.thresholds} />
+          <CellsTable cells={data.cells} />
           <div className="hint">{tr("Tỉ lệ luôn là số đếm k/n kèm khoảng tin cậy Wilson 95%. Ô có dưới 70% run hợp lệ không hiện tỉ lệ.",
             "A rate is always a count k/n with a 95% Wilson interval. A cell with under 70% valid runs shows no rate.")}</div>
         </div></div>

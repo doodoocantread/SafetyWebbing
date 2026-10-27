@@ -180,6 +180,10 @@ class LiveAgentEngine:
             "-e", "SAFETYWEBBING_FIREWALL=1",
             "-e", f"SAFETYWEBBING_TARGET_PORT={target_port(target)}",
             "-e", f"SAFETYWEBBING_ALLOW_DOMAINS={','.join(self.egress_domains(env))}",
+            # Which LLM path to use — read only by the hackingBuddy image, which shares
+            # ITS image between the "hackingbuddy" (llm_api_key) and "hackingbuddy_claude"
+            # (claude_oauth) agents; the PentestGPT image ignores it. Not a secret.
+            "-e", f"SAFETYWEBBING_LLM_AUTH={self.auth}",
         ]
         if self.auth == "llm_api_key":
             # Forward keys by NAME only, so no value hits the argv. When a provider

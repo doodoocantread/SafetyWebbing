@@ -18,6 +18,20 @@ hackingBuddy takes a *litellm* model string (``anthropic/claude-3-5-sonnet-lates
 ``openrouter/…``, ``gpt-4o``). They are not interchangeable, so the litellm model
 is resolved from ``SAFETYWEBBING_HB_LLM_MODEL`` (preferred), or a ``--model`` already in
 litellm form, or a per-provider default chosen from whichever API key is present.
+
+LLM auth path: ``SAFETYWEBBING_LLM_AUTH`` (set by the engine, mirrors config.Agent.auth)
+chooses between the two agents that share this image:
+
+  "llm_api_key"  (default, back-compat with a hand-run container) — the path above.
+  "claude_oauth" — no API key at all. hackingBuddy's single LLM entry point
+                   (``LiteLLM.raw_completion``) is replaced in-process by
+                   :mod:`safetywebbing_hb_agent.claude_bridge`, which drives the Claude
+                   Code CLI using the host's mounted OAuth credentials — the same
+                   credentials and container mount the PentestGPT agent uses. The
+                   patch has to run in the SAME process as hackingBuddy, so this path
+                   execs ``run_wintermute.py`` (which installs it, then calls
+                   hackingBuddyGPT's own ``wintermute`` entry point) instead of the
+                   ``wintermute`` console script.
 """
 
 from __future__ import annotations
@@ -31,6 +45,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from . import claude_bridge
 from .translate import translate
 
 _USECASE = "WebTestingWithExplanation"
@@ -99,12 +114,26 @@ def _write_env_file(cwd: Path, api_key: str) -> None:
     (cwd / ".env").write_text(f"llm.api_key={api_key}\n", encoding="utf-8")
 
 
+def _claude_credentials_present() -> bool:
+    """Whether the engine mounted an (ephemeral copy of the) host's Claude Code OAuth
+    session at ~/.claude — the same file engines/live.py._prepare_creds() populates for
+    the PentestGPT agent. Checked up front so a missing mount fails fast with a clear
+    summary.json error instead of hanging inside the Claude CLI."""
+    return (Path.home() / ".claude" / ".credentials.json").exists()
+
+
 def _build_wintermute_cmd(
     *, target: str, goal: str, model: str, api_base: str | None, max_rounds: int, log_dir: Path,
-    run_id: str, context_size: str,
+    run_id: str, context_size: str, claude_oauth: bool = False,
 ) -> list[str]:
+    # claude_oauth runs through run_wintermute.py (same argv, same hackingBuddyGPT CLI
+    # parser underneath) so claude_bridge.install() can patch LiteLLM before wintermute's
+    # own main() runs — that patch has to happen in-process, not via a wrapping script.
+    runner = (
+        [sys.executable, "-m", "safetywebbing_hb_agent.run_wintermute"] if claude_oauth else ["wintermute"]
+    )
     cmd = [
-        "wintermute", _USECASE,
+        *runner, _USECASE,
         f"--host={target}",
         f"--llm.model={model}",
         f"--llm.context_size={context_size}",
@@ -115,7 +144,11 @@ def _build_wintermute_cmd(
     if goal:
         # Steer the flag-hunting web agent toward the fixed SafetyWebbing scan goal.
         cmd.append(f"--hints={goal}")
-    if api_base:
+    if claude_oauth:
+        # Required by hackingBuddyGPT's CLI parser, but never read: claude_bridge's
+        # raw_completion patch never touches self.api_key for a claude-code/* model.
+        cmd.append("--llm.api_key=unused")
+    elif api_base:
         cmd.append(f"--llm.api_base={api_base}")
     return cmd
 
@@ -170,7 +203,21 @@ def main(argv: list[str] | None = None) -> int:
     # Always leave a summary.json behind, even on failure, so the engine's
     # load_run_result never raises ScanFailed for a run that actually started.
     try:
-        api_key, model, api_base = _resolve_llm(args.model)
+        claude_oauth = os.environ.get("SAFETYWEBBING_LLM_AUTH", "llm_api_key") == "claude_oauth"
+        if claude_oauth:
+            if not _claude_credentials_present():
+                raise RuntimeError(
+                    "no Claude Code credentials mounted at ~/.claude/.credentials.json "
+                    "(the claude_oauth LLM path needs the host's logged-in Claude Code session)"
+                )
+            # Display model (goes in summary.json, like the other agents) vs. the litellm
+            # model string that selects the bridge (see claude_bridge.MODEL_PREFIX).
+            display_model = args.model or claude_bridge.DEFAULT_MODEL
+            model = claude_bridge.MODEL_PREFIX + display_model
+            api_base = None
+        else:
+            api_key, display_model, api_base = _resolve_llm(args.model)
+            model = display_model
         context_size = os.environ.get("SAFETYWEBBING_HB_LLM_CONTEXT_SIZE", "30000")
 
         workspace = Path(args.workspace_root) if args.workspace_root else runs_root.parent
@@ -178,12 +225,13 @@ def main(argv: list[str] | None = None) -> int:
         cwd = Path(tempfile.mkdtemp(prefix=f"hb-{run_id}-", dir=str(workspace)))
         log_dir = cwd / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
-        _write_env_file(cwd, api_key)
+        if not claude_oauth:
+            _write_env_file(cwd, api_key)
 
         cmd = _build_wintermute_cmd(
             target=target, goal=goal, model=model, api_base=api_base,
             max_rounds=args.max_decisions, log_dir=log_dir, run_id=run_id,
-            context_size=context_size,
+            context_size=context_size, claude_oauth=claude_oauth,
         )
         print(f"[safetywebbing-hb] running: {' '.join(cmd)}", flush=True)
         # Fixed argv, no shell; we inspect the result ourselves rather than raising.
@@ -201,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
 
         spans = _load_spans(log_path)
         summary, traces = translate(
-            spans, run_id=run_id, goal=goal, target=target, model=model,
+            spans, run_id=run_id, goal=goal, target=target, model=display_model,
         )
         _write_result(runs_root, run_id, summary, traces)
         print(f"[safetywebbing-hb] wrote summary.json (status={summary['status']})", flush=True)

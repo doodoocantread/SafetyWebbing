@@ -61,11 +61,13 @@ SafetyWebbing/
 │       ├── identifiers.py (18)      # validate_opaque_id (chống path traversal)
 │       └── __init__.py    (3)
 │
-├── agent_image_hackingbuddy/        # ── IMAGE DOCKER (agent #2) ──────────────────────
-│   ├── Dockerfile                   # python:3.13-slim + hackingBuddyGPT; user `agent`; không mount creds
-│   ├── pyproject.toml               # hackingBuddyGPT==0.5.0; script safetywebbing-hackingbuddy-agent
+├── agent_image_hackingbuddy/        # ── IMAGE DOCKER, dùng chung cho agent #2 "hackingbuddy" VÀ #3 "hackingbuddy_claude" ──
+│   ├── Dockerfile                   # python:3.13-slim + hackingBuddyGPT + Claude Code CLI (node); user `agent`
+│   ├── pyproject.toml               # hackingBuddyGPT @ git commit (không có trên PyPI ở bản này); script safetywebbing-hackingbuddy-agent
 │   └── safetywebbing_hb_agent/          # wrapper nói hợp đồng CLI của SafetyWebbing
-│       ├── cli.py                   # map args → wintermute WebTestingWithExplanation → viết summary.json
+│       ├── cli.py                   # map args → wintermute WebTestingWithExplanation; rẽ theo SAFETYWEBBING_LLM_AUTH
+│       ├── claude_bridge.py         # ★ thay LiteLLM.raw_completion bằng `claude -p` (giả lập tool-calling qua structured output); thuần, có test
+│       ├── run_wintermute.py        # entrypoint claude_oauth: install() bridge rồi gọi wintermute.main() trong cùng process
 │       └── translate.py             # ★ JSONL span của hackingBuddy → summary.json + traces/ (thuần, có test)
 │
 ├── web/  overview · scan · history · vulns · system (.html) + about.html (tĩnh)   # React 18 + Babel qua CDN, không build
@@ -379,7 +381,7 @@ Host chỉ dùng: `goal, targets, status, error, cost_usd, wall_duration_s, task
 | Thêm loại scan / đổi goal | `config.py` → `SCAN_TYPES` |
 | Đổi luật whitelist | `config.py` → `validate_target` (và sửa `test_safety.py`) |
 | Thêm engine (vd ZAP) | tạo `engines/zap.py` theo `Engine` Protocol (`engines/base.py`), đăng ký trong `api.py` |
-| Thêm agent (vd hackingBuddy) | thêm mục vào `config.AGENTS` (image + auth + modes); nếu agent ngoài → tạo image mới có wrapper ghi `summary.json` + `traces/` như `agent_image_hackingbuddy/` |
+| Thêm agent (vd hackingBuddy) | thêm mục vào `config.AGENTS` (image + auth + modes); nếu agent ngoài → tạo image mới có wrapper ghi `summary.json` + `traces/` như `agent_image_hackingbuddy/`. Hai agent có thể dùng CHUNG một image với `auth` khác nhau — xem `hackingbuddy` (llm_api_key) vs `hackingbuddy_claude` (claude_oauth, qua `claude_bridge.py`) |
 | Đổi cách ghép request/response | `adapter.py` → `_recover_request` |
 | Đổi luật nhãn offline | `labeling.py` → `HeuristicLabeler` |
 | Đổi prompt/model của LLM labeler | `labeling_llm.py` (`_SYSTEM`) · biến môi trường `SAFETYWEBBING_LLM_MODEL` |

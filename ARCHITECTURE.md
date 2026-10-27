@@ -102,6 +102,11 @@ Frontend poll GET /scan/{job_id} để hiện progress (scan live ~1–2 phút).
     Claude Code trên host.
   - `hackingbuddy` (`safetywebbing-hackingbuddy`): use-case web của hackingBuddyGPT; không mount
     credential, thay vào đó chuyển tiếp API key LLM từ môi trường server (litellm). Chỉ chế độ docker.
+  - `hackingbuddy_claude` (`safetywebbing-hackingbuddy`, CÙNG image với `hackingbuddy` trên): cùng
+    use-case hackingBuddyGPT, nhưng `auth="claude_oauth"` — mount bản sao tạm của credential Claude
+    Code trên host, giống `pentestgpt`, không cần API key. Bên trong image, `claude_bridge.py` thay
+    `LiteLLM.raw_completion` của hackingBuddyGPT bằng lệnh gọi `claude -p`, giả lập tool-calling bằng
+    structured output (CLI của Claude Code không có function-calling kiểu OpenAI). Chỉ chế độ docker.
   Mọi agent ghi **cùng** `summary.json` + `traces/`, nên adapter/labeler/report phía sau không đổi.
 - `ReplayEngine`: đọc một thư mục `runs/<id>/` có sẵn. Dùng cho demo mode và test — **không cần
   auth, không tốn tiền, tất định**.

@@ -8,10 +8,14 @@ version = "0.1.0"
 description = "SafetyWebbing wrapper: runs hackingBuddyGPT's web use-case and emits SafetyWebbing's summary.json + traces."
 # hackingBuddyGPT requires Python >=3.13.
 requires-python = ">=3.13,<4.0"
-# hackingBuddyGPT is on PyPI. Pinned so agent behaviour does not drift under us;
-# bump deliberately. It pulls in litellm (the single LLM upstream) transitively.
+# hackingBuddyGPT is NOT installable from PyPI at the version this wrapper targets: PyPI
+# stops at 0.3.1, and the git tag v0.5.0 predates the litellm-based LLM layer and the
+# gen_ai.* JSONL span log that translate.py reads. That code is on `main`, whose
+# pyproject still says "0.5.0" — so pin the exact commit. Changing the rev changes
+# agent behaviour (like the unified-agent pin in agent_image/pyproject.toml); bump it
+# deliberately. It pulls in litellm (the single LLM upstream) transitively.
 dependencies = [
-    "hackingBuddyGPT==0.5.0",
+    "hackingBuddyGPT @ git+https://github.com/ipa-lab/hackingBuddyGPT@e23d918592556f71b8e3b2ee152449e82fa14794",
 ]
 
 [project.scripts]

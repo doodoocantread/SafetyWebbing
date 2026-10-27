@@ -24,6 +24,7 @@ SafetyWebbing is a school science project. You give it the URL of a **local** we
 - [Development and tests](#development-and-tests)
 - [Experiment log: model comparison](#experiment-log-model-comparison)
 - [Known limitations](#known-limitations)
+- [Future goals](#future-goals)
 - [Credits](#credits)
 
 ## What it does
@@ -178,7 +179,7 @@ The result is in `runs/smoke-01/summary.json`.
 |---|---|
 | `target` | Local URL. It must pass the whitelist. |
 | `scan_type` | `sqli`, `xss`, `auth` or `general` (default). |
-| `agent` | `pentestgpt` (default) or `hackingbuddy`. |
+| `agent` | `pentestgpt` (default), `hackingbuddy` or `hackingbuddy_claude`. |
 | `mode` | `docker` (default) or `direct` (needs server opt-in). |
 | `model` | Model ID for the agent. Leave empty for the agent's default. It is strictly validated. |
 | `timeout_s` | Time budget in seconds, 30 to 3600 (default 600). Because the agent has full access, this is a safety control as well as a performance one. |
@@ -193,6 +194,7 @@ You choose the agent per scan, independently of the run mode. Every agent writes
 |---|---|---|---|---|
 | `pentestgpt` (default) | `safetywebbing-agent` | Your host's Claude Code OAuth session (a temporary copy is mounted) | `docker`, `direct` | PentestGPT agent, vendored into this repo. |
 | `hackingbuddy` | `safetywebbing-hackingbuddy` | An LLM API key through litellm, entered in the UI per scan or set in the server environment | `docker` only | The **web** use-case of [hackingBuddyGPT](https://github.com/ipa-lab/hackingBuddyGPT) (`WebTestingWithExplanation`). |
+| `hackingbuddy_claude` | `safetywebbing-hackingbuddy` (same image) | Your host's Claude Code OAuth session (a temporary copy is mounted, exactly like `pentestgpt`) | `docker` only | The same hackingBuddyGPT use-case, with its LLM calls routed through the Claude Code CLI instead of an API key — see below. No key, no UI field. |
 
 SafetyWebbing includes only hackingBuddyGPT's **web** use-case, which takes a URL. That fits the safety model of loopback whitelist plus container isolation. Its privilege-escalation use-cases, which run real commands over SSH or a local shell, are deliberately **not** included, and hackingBuddyGPT has no `direct` path.
 
@@ -202,16 +204,22 @@ SafetyWebbing includes only hackingBuddyGPT's **web** use-case, which takes a UR
 docker build -t safetywebbing-hackingbuddy ./agent_image_hackingbuddy
 ```
 
+One image serves both `hackingbuddy` and `hackingbuddy_claude`; the engine tells it which LLM path to use per scan (`SAFETYWEBBING_LLM_AUTH`, set from the agent's `auth`, never from the request). hackingBuddyGPT isn't on PyPI at the version this wrapper targets (PyPI tops out at 0.3.1; the git tag `v0.5.0` predates the litellm-based LLM layer this wrapper needs), so `agent_image_hackingbuddy/pyproject.toml` pins an exact commit of `main` instead — like the `unified-agent` pin for the PentestGPT image, bump it deliberately.
+
 A small wrapper (`agent_image_hackingbuddy/safetywebbing_hb_agent/`) accepts the same CLI arguments as the PentestGPT agent and runs `wintermute WebTestingWithExplanation --host <target> --hints <goal> …`. It then translates hackingBuddyGPT's JSONL log into `summary.json` + `traces/` (`translate.py`, unit-tested).
 
-**Providers and keys.** hackingBuddyGPT calls a provider's API directly (Anthropic, Google Gemini, OpenAI or OpenRouter) and can't use the Claude Code session. Give it a key in either of two ways:
+**Providers and keys (`hackingbuddy`).** hackingBuddyGPT calls a provider's API directly (Anthropic, Google Gemini, OpenAI or OpenRouter) through litellm. Give it a key in either of two ways:
 
 1. **In the UI, per scan.** Choosing the agent reveals an **LLM provider** and an **API key** field. The key is used for that scan only and is **not** written to disk or to `audit.log`. For convenience it is kept in your browser's `localStorage`, per provider. The server never stores it.
 2. **In the server environment.** Set `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY` or `OPENROUTER_API_KEY`. When one is present the UI says so, and you can leave the key field empty.
 
 **Model names** use litellm format (`anthropic/claude-sonnet-5-5`, `gemini/gemini-1.5-pro`, `gpt-4o`, `openrouter/…`), which differs from Claude Code model IDs. The order of precedence is `SAFETYWEBBING_HB_LLM_MODEL`, then the UI **Model** field. A bare `claude-…` or `gemini-…` ID is mapped to `anthropic/…` or `gemini/…` for the chosen provider, an ID that already contains `/` is left alone, and otherwise a per-provider default is used.
 
-> **Safety note:** this key goes into the full-access agent container, which reads untrusted web content. The container is the isolation boundary. This is a necessary trade-off because hackingBuddyGPT requires an LLM key to run.
+> **Safety note:** this key goes into the full-access agent container, which reads untrusted web content. The container is the isolation boundary. This is a necessary trade-off because `hackingbuddy` requires an LLM key to run.
+
+**No key at all (`hackingbuddy_claude`).** This agent authenticates the same way `pentestgpt` does: the engine mounts an ephemeral copy of your host's logged-in Claude Code session into the container, and the image's Claude Code CLI (installed alongside hackingBuddyGPT, same as the PentestGPT image) uses it. `--model` takes a plain Claude Code id (`claude-sonnet-5-5`, the default), not a litellm string.
+
+hackingBuddyGPT's own LLM entry point (`LiteLLM.raw_completion`, in `hackingBuddyGPT/utils/llm.py`) is replaced in-process by `claude_bridge.py`, which calls `claude -p` instead of litellm. The Claude CLI has no OpenAI-style function calling, so tool use (the web agent's `HTTPRequest`/`SubmitFlag`/`EndRun` capabilities) is **emulated** with structured output: each turn, Claude is asked for `{"message": ..., "tool_calls": [...]}` against a JSON schema built from the offered tools, validated, and retried once if malformed. This is less reliable than hackingBuddyGPT's native tool-calling against OpenAI-style APIs — watch for turns where it degrades to a plain-text reply with no tool call.
 
 ## Run modes: Docker vs direct
 
@@ -353,6 +361,17 @@ Takeaway: `direct` mode behaves as designed (no container, can read everything o
 - **`direct` mode is not isolated.** See [Run modes](#run-modes-docker-vs-direct).
 - **Agent output varies.** LLM agents are non-deterministic, and a scan can fail or find nothing on a vulnerable target. Treat a report as a lead to verify, not proof of safety.
 - **One bundled sample.** Demo/replay ships a single SQL-injection run against Juice Shop. The other scan types have no bundled sample.
+
+## Future goals
+
+- **Support more LLM providers and models.** Today the `pentestgpt` agent and the report labeler only work with Claude, while `hackingbuddy` reaches Anthropic, Gemini, OpenAI and OpenRouter through litellm. The plan is to make the choice of model provider independent of the choice of agent, and to add first-class support for:
+  - **OpenAI** (GPT models)
+  - **DeepSeek**
+  - other providers, for example Gemini, Mistral, and local models served through Ollama
+- **A provider-neutral labeler.** Let the report labeler use any supported provider, not only Anthropic, and keep the offline heuristic as the fallback.
+- **Compare models side by side.** Build on the [experiment log](#experiment-log-model-comparison) so the same scan can be run with several models and the results compared.
+
+These are goals, not commitments. Any new provider has to keep the safety invariants in [How it stays safe](#how-it-stays-safe), including passing API keys by environment variable name and never writing them to disk or `audit.log`.
 
 ## Credits
 

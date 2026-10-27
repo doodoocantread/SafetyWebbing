@@ -174,6 +174,21 @@ AGENTS: dict[str, Agent] = {
         description="Use-case web của hackingBuddyGPT; cần API key LLM trong môi trường server.",
         modes=("docker",),
     ),
+    # Same image and use-case as "hackingbuddy" above, but no API key at all: the image's
+    # claude_bridge.py (agent_image_hackingbuddy/safetywebbing_hb_agent/) replaces
+    # hackingBuddy's LLM calls with the Claude Code CLI, authenticated the same way
+    # PentestGPT is — an ephemeral copy of the host's Claude Code session.
+    "hackingbuddy_claude": Agent(
+        key="hackingbuddy_claude",
+        label="hackingBuddyGPT (Claude Code session)",
+        image="safetywebbing-hackingbuddy",
+        auth="claude_oauth",
+        description=(
+            "Use-case web của hackingBuddyGPT; xác thực bằng phiên Claude Code của host, "
+            "không cần API key."
+        ),
+        modes=("docker",),
+    ),
 }
 
 

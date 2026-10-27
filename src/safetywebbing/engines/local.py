@@ -24,6 +24,7 @@ import shlex
 import shutil
 import signal
 import sys
+import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -111,6 +112,13 @@ class LocalAgentEngine:
     model: str | None = None
     max_decisions: int = 20
     timeout_s: float = 600.0
+    # Start the agent in a fresh, empty temp directory instead of the repo root. By default
+    # the agent's cwd is the repo, so a model that wanders reads src/ (README: a Sonnet run
+    # did exactly that) — and during a benchmark that includes the answer key in benchmark/.
+    # This removes the accident, NOT the capability: direct mode has no isolation, so the
+    # agent can still `cd` anywhere. The benchmark's integrity check looks for that in the
+    # trace. Needs an agent command made of ABSOLUTE paths (the `.agent-venv` lookup is).
+    empty_cwd: bool = False
 
     def command(self) -> list[str] | None:
         return self.agent_cmd or resolve_agent_command(self.search_dirs)
@@ -146,22 +154,31 @@ class LocalAgentEngine:
         cmd = self.build_command(target=target, goal=goal, run_id=run_id)
         self.runs_root.mkdir(parents=True, exist_ok=True)
         self.workspace_root.mkdir(parents=True, exist_ok=True)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-            env=agent_env(),
-            cwd=str(self.workspace_root.parent),
-            start_new_session=(sys.platform != "win32"),  # own process group for killpg
+        scratch = (
+            tempfile.TemporaryDirectory(prefix="sw-agent-cwd-", ignore_cleanup_errors=True)
+            if self.empty_cwd
+            else None
         )
         try:
-            raw, _ = await asyncio.wait_for(proc.communicate(), timeout=self.timeout_s)
-        except TimeoutError:
-            await _kill_tree(proc)
-            raise ScanFailed(f"scan {run_id} timed out after {self.timeout_s}s") from None
-        except asyncio.CancelledError:
-            await _kill_tree(proc)
-            raise
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                env=agent_env(),
+                cwd=scratch.name if scratch else str(self.workspace_root.parent),
+                start_new_session=(sys.platform != "win32"),  # own process group for killpg
+            )
+            try:
+                raw, _ = await asyncio.wait_for(proc.communicate(), timeout=self.timeout_s)
+            except TimeoutError:
+                await _kill_tree(proc)
+                raise ScanFailed(f"scan {run_id} timed out after {self.timeout_s}s") from None
+            except asyncio.CancelledError:
+                await _kill_tree(proc)
+                raise
+        finally:
+            if scratch:
+                scratch.cleanup()  # after the process (tree) is dead, so Windows holds no handle
         return load_run_result(
             self.runs_root, run_id, engine=self.name,
             stdout=raw.decode("utf-8", errors="replace"), returncode=proc.returncode,

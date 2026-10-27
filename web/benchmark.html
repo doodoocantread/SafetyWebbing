@@ -42,6 +42,9 @@ const FAILURE = {
 const TARGET_LABEL = {"juice-shop": "OWASP Juice Shop", dvwa: "DVWA"};
 const targetName = (t, c) => `${TARGET_LABEL[t] || t} · ${c}`;
 const modelShort = m => (m || "").replace(/^claude-/, "").replace(/-\d+-\d+$/, "");
+// Short agent tag so two runs of the same model by different agents stay distinguishable.
+const AGENT_SHORT = {pentestgpt: "PentestGPT", hackingbuddy_claude: "hBuddy·Claude", hackingbuddy: "hBuddy"};
+const agentShort = a => AGENT_SHORT[a] || a;
 
 function Rate({r}) {
   if (!r) return <span className="muted">—</span>;
@@ -84,7 +87,7 @@ function CellsTable({cells}) {
   const showFp = cells.some(c => c.false_positive);
   return <div className="tbl-wrap"><table className="tbl">
     <thead><tr>
-      <th>Target</th><th>{tr("Loại scan", "Scan")}</th><th>Model</th>
+      <th>Target</th><th>Agent</th><th>{tr("Loại scan", "Scan")}</th><th>Model</th>
       <th className="num">{tr("Run hợp lệ", "Valid runs")}</th>
       <th>{tr("Khai thác (oracle xác nhận)", "Exploited (oracle-confirmed)")}</th>
       <th>{tr("Báo cáo đúng / đã khai thác", "Correctly reported / exploited")}</th>
@@ -99,6 +102,7 @@ function CellsTable({cells}) {
       if (c.t1_min != null) notes.push(tr(`ngưỡng khai thác ≥ ${pct(c.t1_min)}`, `exploit threshold ≥ ${pct(c.t1_min)}`));
       return <tr key={i}>
         <td>{targetName(c.target, c.config)}</td>
+        <td className="mono" title={c.agent}>{agentShort(c.agent)}</td>
         <td className="mono">{c.scan_type}</td>
         <td className="mono" title={c.model}>{modelShort(c.model)}</td>
         <td className="num">{c.valid}/{c.runs}</td>
@@ -136,7 +140,7 @@ function Matrix({manifest, trials}) {
       <div className="tbl-wrap"><table className="tbl">
         <thead><tr>
           <th>{tr("Lỗ hổng", "Weakness")}</th><th>CWE</th><th>Scan</th>
-          {runs.map(t => <th key={t.run_id} title={t.run_id} style={{textAlign: "center"}}>{modelShort(t.model)}<br/><span className="mono">{t.scan_type}</span></th>)}
+          {runs.map(t => <th key={t.run_id} title={t.run_id} style={{textAlign: "center"}}>{agentShort(t.agent)}<br/>{modelShort(t.model)}<br/><span className="mono">{t.scan_type}</span></th>)}
         </tr></thead>
         <tbody>{manifest.vulns.map(v => {
           const muted = v.scoring !== "scored";
@@ -172,7 +176,7 @@ function RunsTable({trials}) {
         return <tr key={t.run_id}>
           <td className="mono wrapcell">{t.run_id}<div className="hint" style={{margin: 0}}>{t.suite} · {fmtTime(t.started_at)}</div></td>
           <td>{targetName(t.target, t.config)}</td>
-          <td><span className="mono">{t.scan_type}</span> · {modelShort(t.model)}</td>
+          <td><span className="mono">{t.scan_type}</span> · {modelShort(t.model)}<div className="hint" style={{margin: 0}}>{agentShort(t.agent)}</div></td>
           <td className="wrapcell">
             <StatusPill status={t.status} />
             {t.failure_kind && <div className="hint" style={{margin: "4px 0 0"}}>{FAILURE[t.failure_kind]}</div>}
@@ -225,7 +229,7 @@ function Method({th}) {
         <li><b>{tr("Bộ dò rò rỉ chỉ là bản thử", "Leak detector is a prototype")}</b><span>{tr("Nó từng báo nhầm đường dẫn lưu session của chính Claude CLI. Cảnh báo hiện chưa duyệt và chưa loại run nào.", "It once flagged the Claude CLI's own session-storage path. Hits are unreviewed and no run has been excluded because of them.")}</span></li>
         <li><b>{tr("Oracle đo khai thác sâu", "The oracle measures deep exploitation")}</b><span>{tr("Mục SQLi của ô tìm kiếm chỉ tính khi agent lấy ra dữ liệu. Run Haiku chứng minh được khác biệt boolean nhưng không trích xuất gì nên bị chấm 0/3 — điểm 0 ở đây không có nghĩa là không tìm ra lỗ hổng.", "The search-box SQLi entries only count when the agent extracts data. The Haiku run proved a boolean difference but extracted nothing, so it scores 0/3 — a zero here does not mean the flaw was not found.")}</span></li>
         <li><b>{tr("Finding chỉ là đoạn trích", "Findings are excerpts")}</b><span>{tr("Finding giữ đoạn trích do agent chọn, không phải response thô, nên bằng chứng quyết định có thể bị labeler bỏ sót (trong run Haiku, finding mang khác biệt boolean bị gán info).", "A finding keeps an excerpt the agent chose, not the raw response, so the decisive evidence can be missed by the labeler (in the Haiku run the finding carrying the boolean difference was rated info).")}</span></li>
-        <li><b>{tr("Một engine", "One engine")}</b><span>{tr("Chỉ PentestGPT; hackingBuddy cần API key nên chưa chạy. Không có kết luận so sánh engine.", "PentestGPT only; hackingBuddy needs an API key and has not run. No engine comparison is claimed.")}</span></li>
+        <li><b>{tr("Không so sánh engine", "No engine comparison")}</b><span>{tr("Cả PentestGPT và hackingBuddyGPT (phiên Claude Code) đều có run thật, nhưng khác ngân sách, đường LLM và chi phí, nên không có kết luận engine nào tốt hơn. Mỗi ô chỉ vài run.", "Both PentestGPT and hackingBuddyGPT (Claude Code session) have real runs, but with different budgets, LLM paths and cost, so no engine is claimed better. Each cell has only a few runs.")}</span></li>
       </ul></div>
     </div>
   </div>;

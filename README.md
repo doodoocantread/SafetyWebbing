@@ -24,6 +24,7 @@ SafetyWebbing is a school science project. You give it the URL of a **local** we
 - [Development and tests](#development-and-tests)
 - [Experiment log: model comparison](#experiment-log-model-comparison)
 - [Known limitations](#known-limitations)
+- [Future goals](#future-goals)
 - [Credits](#credits)
 
 ## What it does
@@ -348,6 +349,17 @@ Takeaway: `direct` mode behaves as designed (no container, can read everything o
 - **`direct` mode is not isolated.** See [Run modes](#run-modes-docker-vs-direct).
 - **Agent output varies.** LLM agents are non-deterministic, and a scan can fail or find nothing on a vulnerable target. Treat a report as a lead to verify, not proof of safety.
 - **One bundled sample.** Demo/replay ships a single SQL-injection run against Juice Shop. The other scan types have no bundled sample.
+
+## Future goals
+
+- **Support more LLM providers and models.** Today the `pentestgpt` agent and the report labeler only work with Claude, while `hackingbuddy` reaches Anthropic, Gemini, OpenAI and OpenRouter through litellm. The plan is to make the choice of model provider independent of the choice of agent, and to add first-class support for:
+  - **OpenAI** (GPT models)
+  - **DeepSeek**
+  - other providers, for example Gemini, Mistral, and local models served through Ollama
+- **A provider-neutral labeler.** Let the report labeler use any supported provider, not only Anthropic, and keep the offline heuristic as the fallback.
+- **Compare models side by side.** Build on the [experiment log](#experiment-log-model-comparison) so the same scan can be run with several models and the results compared.
+
+These are goals, not commitments. Any new provider has to keep the safety invariants in [How it stays safe](#how-it-stays-safe), including passing API keys by environment variable name and never writing them to disk or `audit.log`.
 
 ## Credits
 

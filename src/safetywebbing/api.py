@@ -21,6 +21,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .audit import record_scan
+from .benchmark.aggregate import build_payload as build_benchmark_payload
+from .benchmark.manifest import ManifestError
+from .benchmark.result import ResultError
 from .config import (
     AGENTS,
     DEFAULT_AGENT,
@@ -61,6 +64,7 @@ _REPO = Path(__file__).resolve().parents[2]
 _WEB_DIR = _REPO / "web"
 _SAMPLES = _REPO / "samples" / "runs"
 _LIVE_RUNS = _REPO / "runs"
+_BENCHMARK_DIR = _REPO / "benchmark"
 
 # Live-scan resource guards (single-host tool — keep Docker containers bounded).
 _MAX_CONCURRENT_SCANS = 2
@@ -286,6 +290,21 @@ def audit_log(limit: int = 100) -> list[dict[str, Any]]:
     return recent_audit(_LIVE_RUNS, limit)
 
 
+@app.get("/api/benchmark")
+def benchmark() -> dict[str, Any]:
+    """Recorded benchmark trials scored against ground truth (benchmark/PROTOCOL.md).
+
+    Read-only by design: results come from files committed under benchmark/results/, and this
+    app has no endpoint that starts a benchmark run (an agent run is a CLI, operator-only act)."""
+    try:
+        return build_benchmark_payload(
+            results_dir=_BENCHMARK_DIR / "results", targets_dir=_BENCHMARK_DIR / "targets",
+            protocol_path=_BENCHMARK_DIR / "PROTOCOL.md", repo_root=_REPO,
+        )
+    except (ManifestError, ResultError) as exc:
+        raise HTTPException(500, f"benchmark data is invalid: {exc}") from None
+
+
 async def _run_live_job(
     job_id: str, engine: Engine, agent: str, mode: str, model: str | None,
     target: str, goal: str, scan_type: str, run_id: str,
@@ -501,6 +520,12 @@ def scan_page() -> FileResponse:
 def vulns_page() -> FileResponse:
     """Vulnerabilities across all scans, with triage."""
     return FileResponse(_WEB_DIR / "vulns.html")
+
+
+@app.get("/benchmark")
+def benchmark_page() -> FileResponse:
+    """What SafetyWebbing finds on targets whose weaknesses are known, with its limits stated."""
+    return FileResponse(_WEB_DIR / "benchmark.html")
 
 
 @app.get("/system")

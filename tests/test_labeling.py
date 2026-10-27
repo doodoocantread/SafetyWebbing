@@ -78,7 +78,7 @@ def test_boolean_differential_flagged_high():
 # --- no false positives: a benign probe must stay informational -------------
 
 def test_benign_probe_not_escalated():
-    # `--max-time` matches the loose `--` payload pattern and status is 200, but
+    # `--max-time` is a curl flag (not a SQL comment) and status is 200, but
     # there is no token, no SQL error and no TRUE/FALSE differential → not a vuln.
     f = Finding(
         id="b",
@@ -88,6 +88,50 @@ def test_benign_probe_not_escalated():
     lbl = HeuristicLabeler().label(f)
     assert lbl.severity == Severity.info
     assert lbl.cwe is None
+
+
+def test_curl_flag_with_token_in_body_not_critical_sqli():
+    # Regression: the bare `--` in `--max-time` used to match the SQLi payload pattern,
+    # so a plain 200 page that merely contained the word "token" (e.g. a CSRF field)
+    # was labeled CRITICAL "SQL Injection (authentication bypass)".
+    for request in (
+        "curl -s --max-time 5 http://127.0.0.1:3000/",
+        "curl -s 'http://127.0.0.1:3000/' --max-time 5",  # quote, then a flag
+    ):
+        f = Finding(
+            id="csrf",
+            request=request,
+            response='HTTP/1.1 200 OK\r\n\r\n<input name="csrf_token" value="abc">',
+        )
+        lbl = HeuristicLabeler().label(f)
+        assert lbl.severity == Severity.info, request
+        assert lbl.cwe is None
+        assert not any("mẫu cú pháp SQL" in r for r in lbl.rationale)
+
+
+def test_curl_flag_with_500_not_error_based_sqli():
+    # Same root cause: any 500 to a curl with a `--flag` was "Possible SQL Injection".
+    f = Finding(
+        id="e500",
+        request="curl -s --max-time 5 http://127.0.0.1:3000/boom",
+        response="HTTP/1.1 500 Internal Server Error\r\n\r\noops",
+    )
+    lbl = HeuristicLabeler().label(f)
+    assert lbl.cwe == "CWE-209"
+    assert lbl.severity == Severity.low
+
+
+def test_real_sql_comment_payload_still_flagged():
+    # A genuine comment-terminated payload (no `OR 1=1`) must still be recognised.
+    for payload in ("admin'--", "admin' -- "):
+        f = Finding(
+            id="c",
+            request=f"curl -s -X POST http://127.0.0.1:3000/rest/user/login -d \"email={payload}\"",
+            response='HTTP/1.1 200 OK\r\n\r\n{"authentication":{"token":"x"}}',
+        )
+        lbl = HeuristicLabeler().label(f)
+        assert lbl.vuln_class == "SQL Injection (authentication bypass)", payload
+        assert lbl.severity == Severity.critical
 
 
 def test_compact_401_is_baseline():

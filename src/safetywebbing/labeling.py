@@ -48,7 +48,12 @@ class HeuristicLabeler:
 
     name = "heuristic"
 
-    _SQLI_PAYLOAD = re.compile(r"(' *or *1 *= *1|--|union +select|' *or *')", re.IGNORECASE)
+    # The request is the agent's whole shell command, so a bare `--` would match every
+    # long curl flag (`--max-time`). `--` only counts as a SQL comment right after a
+    # quote and when no letter/dash follows (`admin'--`, `' -- `), never `' --max-time`.
+    _SQLI_PAYLOAD = re.compile(
+        r"(' *or *1 *= *1|'\s*--(?![A-Za-z-])|union +select|' *or *')", re.IGNORECASE
+    )
     _XSS_PAYLOAD = re.compile(r"(<script|onerror=|onload=|<img|javascript:)", re.IGNORECASE)
     # Database error signatures leaking into a response — strong SQLi evidence on
     # their own, independent of the HTTP status (e.g. Juice Shop leaks

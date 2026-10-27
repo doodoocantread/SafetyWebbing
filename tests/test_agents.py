@@ -53,6 +53,13 @@ def test_agent_records_carry_image_and_auth():
     assert hb.modes == ("docker",)  # hackingBuddy is container-only
 
 
+def _forwarded_secrets(cmd: list[str]) -> list[str]:
+    """Env vars forwarded BY NAME (`-e NAME`, no value on the argv) — the secrets.
+    `-e NAME=value` entries are the engine's own non-secret policy config
+    (SAFETYWEBBING_*), asserted separately in test_container_isolation.py."""
+    return [cmd[i + 1] for i, a in enumerate(cmd) if a == "-e" and "=" not in cmd[i + 1]]
+
+
 # --- engine: image swap + key passthrough, no creds for llm_api_key ----------
 
 
@@ -68,7 +75,7 @@ def test_build_command_hackingbuddy_forwards_key_without_creds(tmp_path):
     joined = " ".join(cmd)
     assert "safetywebbing-hackingbuddy" in cmd
     # key forwarded by NAME only — the value never appears on the argv
-    assert cmd[cmd.index("-e") + 1] == "ANTHROPIC_API_KEY"
+    assert _forwarded_secrets(cmd) == ["ANTHROPIC_API_KEY"]
     assert "sk-secret" not in joined
     # no credential mount for an llm_api_key agent
     assert "/home/agent/.claude" not in joined
@@ -82,8 +89,7 @@ def test_build_command_hackingbuddy_only_forwards_present_keys(tmp_path):
         target="http://localhost", goal="g", run_id="r1",
         env={"OPENAI_API_KEY": "x"},  # only one of the three is set
     )
-    forwarded = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-e"]
-    assert forwarded == ["OPENAI_API_KEY"]
+    assert _forwarded_secrets(cmd) == ["OPENAI_API_KEY"]
 
 
 def test_build_command_pentestgpt_has_no_key_passthrough(tmp_path):
@@ -92,7 +98,7 @@ def test_build_command_pentestgpt_has_no_key_passthrough(tmp_path):
         target="http://localhost", goal="g", run_id="r1",
         env={"ANTHROPIC_API_KEY": "x"},
     )
-    assert "-e" not in cmd  # OAuth agent never forwards provider keys
+    assert _forwarded_secrets(cmd) == []  # OAuth agent never forwards provider keys
 
 
 # --- LLM providers (config) ---------------------------------------------------
@@ -137,8 +143,7 @@ def test_container_env_injects_scan_key_under_provider_name(monkeypatch):
     assert env["GEMINI_API_KEY"] == "g-secret"
     # and build_command forwards ONLY that provider's key, by name
     cmd = eng.build_command(target="http://localhost", goal="g", run_id="r1", env=env)
-    forwarded = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-e"]
-    assert forwarded == ["GEMINI_API_KEY"]
+    assert _forwarded_secrets(cmd) == ["GEMINI_API_KEY"]
     assert "g-secret" not in " ".join(cmd)  # value never on the argv
 
 

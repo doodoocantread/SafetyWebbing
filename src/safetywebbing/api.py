@@ -31,16 +31,19 @@ from .config import (
     LLM_PROVIDERS,
     SCAN_TYPES,
     AgentNotAllowed,
+    InvalidEgressDomain,
     InvalidLLMProvider,
     InvalidModel,
     InvalidProject,
     InvalidRunId,
+    InvalidTargetPort,
     InvalidTimeout,
     ModeNotAllowed,
     TargetNotAllowed,
     agent_for,
     direct_mode_enabled,
     goal_for,
+    target_port,
     validate_llm_provider,
     validate_mode,
     validate_model,
@@ -371,6 +374,10 @@ async def start_scan(req: ScanRequest) -> dict[str, str]:
     except TargetNotAllowed as exc:
         raise HTTPException(400, f"target not allowed: {exc}") from None
     try:
+        target_port(target)  # the container firewall is built around this port
+    except InvalidTargetPort as exc:
+        raise HTTPException(400, f"target not allowed: {exc}") from None
+    try:
         goal = goal_for(req.scan_type)  # fixed scope (§2.2)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
@@ -447,6 +454,10 @@ async def start_scan(req: ScanRequest) -> dict[str, str]:
             live_engine, image=agent.image, auth=agent.auth, model=model, timeout_s=timeout_s,
             llm_api_key=llm_api_key, llm_env_name=llm_env_name,
         )
+        try:
+            engine.egress_domains()  # a malformed operator allowlist must not start a scan
+        except InvalidEgressDomain as exc:
+            raise HTTPException(500, f"server egress allowlist is misconfigured: {exc}") from None
 
     _prune_jobs()
     job_id = uuid.uuid4().hex[:12]

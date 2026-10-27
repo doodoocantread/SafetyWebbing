@@ -22,9 +22,11 @@ ENV PYTHONUNBUFFERED=1 \
 # nodejs/npm: needed by the Claude Code CLI (the "claude" backend).
 # curl, ca-certificates: TLS + node setup. Common pentest scanners (curl) also
 # double as agent tools.
+# iptables: the entrypoint's egress firewall (sw-entrypoint.sh). util-linux (setpriv)
+# and libc-bin (getent) ship with the base image.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        git curl ca-certificates nodejs npm \
+        git curl ca-certificates nodejs npm iptables \
     && rm -rf /var/lib/apt/lists/*
 
 # Claude Code CLI (the provider the "claude" backend drives).
@@ -38,13 +40,20 @@ RUN pip install .
 
 # Claude Code refuses --dangerously-skip-permissions when running as root (a
 # security guard), and the agent needs that flag to run tools autonomously. So
-# the container runs as a non-root user. Credentials are mounted into this
-# user's home (/home/agent/.claude) by LiveAgentEngine, not into /root.
+# the AGENT runs as a non-root user. Credentials are mounted into this user's
+# home (/home/agent/.claude) by LiveAgentEngine, not into /root.
 RUN useradd --create-home --uid 1000 agent \
     && mkdir -p /work/runs /work/agent-workspaces \
     && chown -R agent:agent /work /home/agent
 ENV HOME=/home/agent
-USER agent
+
+# The container STARTS as root only so the entrypoint can install the egress firewall;
+# it then execs the agent as `agent` with every capability dropped (sw-entrypoint.sh).
+# The engine starts the container with --cap-drop ALL plus just the four capabilities
+# that needs, so even this root is not full root.
+COPY sw-entrypoint.sh /usr/local/bin/sw-entrypoint
+RUN chmod 0755 /usr/local/bin/sw-entrypoint
+ENV SAFETYWEBBING_AGENT_BIN=pentestgpt-agent
 WORKDIR /work
 
-ENTRYPOINT ["pentestgpt-agent"]
+ENTRYPOINT ["/usr/local/bin/sw-entrypoint"]

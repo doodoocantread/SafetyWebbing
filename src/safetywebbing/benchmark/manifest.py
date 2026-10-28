@@ -37,6 +37,16 @@ class JuiceChallengeOracle(BaseModel):
     key: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9]{2,63}$")
 
 
+class FileOracle(BaseModel):
+    """A target that records successful exploits itself, one JSON line per hit in an oracle
+    log (VulnShop: `data/oracle.jsonl`, field `id`). Like `juice_challenge`, the runner
+    snapshots the log before and after a trial; a newly seen `key` means the weakness was
+    really exploited."""
+
+    kind: Literal["file_oracle"]
+    key: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{1,63}$")
+
+
 class TraceMatchOracle(BaseModel):
     """A request/response pair in the agent's trace that proves exploitation (used where
     the target has no solved-state, e.g. DVWA). Patterns are regexes; when both are given,
@@ -63,7 +73,9 @@ class TraceMatchOracle(BaseModel):
         return self
 
 
-Oracle = Annotated[JuiceChallengeOracle | TraceMatchOracle, Field(discriminator="kind")]
+Oracle = Annotated[
+    JuiceChallengeOracle | FileOracle | TraceMatchOracle, Field(discriminator="kind")
+]
 
 
 class Endpoint(BaseModel):
@@ -147,14 +159,39 @@ class Vuln(BaseModel):
         return self
 
 
+class AcceptedWeakness(BaseModel):
+    """A known, deliberately tolerated weakness (e.g. no HTTPS on a loopback-only target).
+    A finding on it is out of scope: neither a hit nor a false positive."""
+
+    id: str
+    title: str
+    cwe: str | None = None
+    reason: str = Field(min_length=1)
+
+    @field_validator("id")
+    @classmethod
+    def _id(cls, value: str) -> str:
+        if not _ID_RE.fullmatch(value):
+            raise ValueError(f"id must be lowercase letters, digits and dashes: {value!r}")
+        return value
+
+    @field_validator("cwe")
+    @classmethod
+    def _cwe(cls, value: str | None) -> str | None:
+        if value is not None and not _CWE_RE.fullmatch(value):
+            raise ValueError(f"cwe must look like 'CWE-319', got {value!r}")
+        return value
+
+
 class Manifest(BaseModel):
-    target: Literal["juice-shop", "dvwa"]
+    target: Literal["juice-shop", "dvwa", "vulnshop"]
     # Which configuration of the target this describes ("default", or a DVWA security level).
     config: str
     # Exactly which build was read to write this manifest (version / commit). Results record
     # the version actually run, so a mismatch is visible instead of silent.
     reference: str
     vulns: list[Vuln] = Field(alias="vuln", min_length=1)
+    accepted_weaknesses: list[AcceptedWeakness] = Field(default_factory=list, alias="accepted_weakness")
 
     model_config = {"populate_by_name": True}
 
@@ -169,6 +206,13 @@ class Manifest(BaseModel):
                 o.kind == "juice_challenge" for o in v.oracles
             ):
                 raise ValueError(f"{v.id}: juice_challenge oracles only apply to juice-shop")
+            if self.target != "vulnshop" and any(o.kind == "file_oracle" for o in v.oracles):
+                raise ValueError(f"{v.id}: file_oracle oracles only apply to vulnshop")
+        accepted: set[str] = set()
+        for w in self.accepted_weaknesses:
+            if w.id in accepted or w.id in seen:
+                raise ValueError(f"duplicate id {w.id!r} in accepted_weakness")
+            accepted.add(w.id)
         return self
 
     def scored(self) -> list[Vuln]:

@@ -217,3 +217,23 @@ def test_high_finding_on_a_safe_control_is_a_false_positive(dvwa, sev, expected)
 def test_controls_are_never_asked_as_weaknesses(dvwa):
     s = score_trial(trial(target="dvwa", config="low"), dvwa)
     assert [o.vuln_id for o in s.outcomes] == ["d-sqli"]
+
+
+# --- file_oracle (self-reporting target) -----------------------------------------
+
+
+def test_file_oracle_counts_a_newly_logged_key_as_exploited(tmp_path):
+    path = tmp_path / "m.toml"
+    path.write_text(
+        'target = "vulnshop"\nconfig = "default"\nreference = "t"\n'
+        '[[vuln]]\nid = "vs-a"\ntitle = "t"\nscan_type = "sqli"\ncwe = "CWE-89"\n'
+        'endpoints = [{ method = "POST", path = "/login", param = "username" }]\n'
+        'oracles = [{ kind = "file_oracle", key = "V01" }]\n',
+        encoding="utf-8",
+    )
+    manifest = load_manifest(path)
+    hit = score_trial(trial(solved=["V01"], target="vulnshop"), manifest)
+    miss = score_trial(trial(target="vulnshop"), manifest)
+    assert by_id(hit)["vs-a"].exploited is True
+    assert by_id(miss)["vs-a"].exploited is False
+    assert hit.oracle_off_manifest == []

@@ -39,7 +39,7 @@ const FAILURE = {
   agent_error:   tr("Lỗi bên trong agent", "Internal agent error"),
   unknown:       tr("Không rõ nguyên nhân", "Unknown cause"),
 };
-const TARGET_LABEL = {"juice-shop": "OWASP Juice Shop", dvwa: "DVWA"};
+const TARGET_LABEL = {"juice-shop": "OWASP Juice Shop", dvwa: "DVWA", vulnshop: "VulnShop"};
 const targetName = (t, c) => `${TARGET_LABEL[t] || t} · ${c}`;
 const modelShort = m => (m || "").replace(/^claude-/, "").replace(/-\d+-\d+$/, "");
 // Short agent tag so two runs of the same model by different agents stay distinguishable.

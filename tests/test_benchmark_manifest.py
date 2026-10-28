@@ -174,3 +174,46 @@ def test_duplicate_target_config_across_files(tmp_path):
     _write(tmp_path, _GOOD_VULN, name="b.toml")
     with pytest.raises(ManifestError, match="duplicate manifest"):
         load_manifests(tmp_path)
+
+
+# --- file_oracle and accepted_weakness (self-reporting targets) -----------------
+
+_FILE_VULN = _GOOD_VULN.replace(
+    'oracles = [{ kind = "trace_match", response_pattern = "boom" }]',
+    'oracles = [{ kind = "file_oracle", key = "V01" }, { kind = "trace_match", response_pattern = "boom" }]',
+)
+_ACCEPTED = """
+[[accepted_weakness]]
+id = "no-https"
+title = "Plain HTTP"
+cwe = "CWE-319"
+reason = "loopback only"
+"""
+
+
+def test_file_oracle_loads_for_vulnshop(tmp_path):
+    m = load_manifest(_write(tmp_path, _FILE_VULN + _ACCEPTED, target="vulnshop", config="default"))
+    assert [o.kind for o in m.vulns[0].oracles] == ["file_oracle", "trace_match"]
+    assert [w.id for w in m.accepted_weaknesses] == ["no-https"]
+
+
+def test_file_oracle_refused_for_other_targets(tmp_path):
+    with pytest.raises(ManifestError, match="file_oracle oracles only apply to vulnshop"):
+        load_manifest(_write(tmp_path, _FILE_VULN, target="dvwa", config="low"))
+
+
+@pytest.mark.parametrize(
+    "bad", ['key = "V 01"', 'key = "1"'],
+)
+def test_file_oracle_key_must_be_an_identifier(tmp_path, bad):
+    body = _FILE_VULN.replace('key = "V01"', bad)
+    with pytest.raises(ManifestError):
+        load_manifest(_write(tmp_path, body, target="vulnshop", config="default"))
+
+
+def test_accepted_weakness_needs_a_reason_and_unique_id(tmp_path):
+    no_reason = _ACCEPTED.replace('reason = "loopback only"', 'reason = ""')
+    with pytest.raises(ManifestError):
+        load_manifest(_write(tmp_path, _FILE_VULN + no_reason, target="vulnshop", config="default"))
+    with pytest.raises(ManifestError, match="duplicate id"):
+        load_manifest(_write(tmp_path, _FILE_VULN + _ACCEPTED + _ACCEPTED, target="vulnshop", config="default"))

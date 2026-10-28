@@ -105,6 +105,7 @@ def test_translate_output_round_trips_through_adapter(tmp_path):
         ("got root", "OK", "completed"),
         ("Reached maximum rounds (100)", "ERROR", "completed"),
         ("exception occurred", "ERROR", "error"),
+        ("Cancelled", "ERROR", "failed"),
     ],
 )
 def test_status_mapping(run_state, root_status, expected):
@@ -113,8 +114,13 @@ def test_status_mapping(run_state, root_status, expected):
         run_id="r", goal="g", target="http://localhost",
     )
     assert summary["status"] == expected
-    if expected == "error":
+    # A non-"completed" status always carries its cause in `error`: a `failed` run
+    # (e.g. the process was cancelled from outside, not a hackingBuddy crash) is still
+    # a cause a reader needs, not a silent `null` — see the comment above the "error" key.
+    if expected != "completed":
         assert summary["error"] == run_state
+    else:
+        assert summary["error"] is None
 
 
 def test_no_tool_calls_yields_empty_observations():

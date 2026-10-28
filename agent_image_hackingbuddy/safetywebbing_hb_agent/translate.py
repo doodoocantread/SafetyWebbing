@@ -187,7 +187,13 @@ def translate(
         "model": run_model or None,
         "cost_usd": round(cost, 6),
         "wall_duration_s": _run_duration_s(roots),
-        "error": state if status == "error" else None,
+        # Any non-"completed" status needs a cause, not just "error": a "failed" run
+        # (e.g. state "Cancelled" — the process was killed from outside, not a hackingBuddy
+        # crash) used to drop `state` here, leaving `error: null` with no way to tell a
+        # real dead end from an external interruption without reading the raw hackingBuddy
+        # log. `hackingbuddy_run_state` below carries the same string; this just stops the
+        # common `error` field consumers (TrialResult, the benchmark page) from losing it.
+        "error": state if status != "completed" else None,
         "tasks": tasks,
         "attempts": attempts,
         "observations": observations,

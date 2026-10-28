@@ -108,7 +108,7 @@ def test_build_wintermute_cmd_claude_oauth_runs_bridge_module_no_api_base():
     cmd = cli._build_wintermute_cmd(
         target="http://127.0.0.1:3000", goal="pentest", model="claude-code/claude-sonnet-5-5",
         api_base="https://ignored.example", max_rounds=20, log_dir="logs", run_id="r1",
-        context_size="30000", claude_oauth=True,
+        context_size="30000", api_timeout="3600", claude_oauth=True,
     )
     assert cmd[:3] == [sys.executable, "-m", "safetywebbing_hb_agent.run_wintermute"]
     assert "--llm.api_key=unused" in cmd
@@ -120,9 +120,47 @@ def test_build_wintermute_cmd_llm_api_key_runs_wintermute_console_script():
     cmd = cli._build_wintermute_cmd(
         target="http://127.0.0.1:3000", goal="pentest", model="anthropic/claude-sonnet-5-5",
         api_base=None, max_rounds=20, log_dir="logs", run_id="r1", context_size="30000",
+        api_timeout="3600",
     )
     assert cmd[0] == "wintermute"
     assert not any(c.startswith("--llm.api_key") for c in cmd)
+
+
+def test_build_wintermute_cmd_passes_the_llm_turn_timeout():
+    # hackingBuddyGPT's own default (llm.py) is 300s for a single turn — too short for a
+    # real tool-calling turn through our Claude Code bridge (measured up to ~480s on an
+    # equivalent PentestGPT episode), and the proximate cause of every genuine hackingBuddy
+    # crash in the pilot smoke runs (ClaudeBridgeError: "claude timed out after 300s").
+    cmd = cli._build_wintermute_cmd(
+        target="http://127.0.0.1:3000", goal="pentest", model="claude-code/claude-sonnet-5-5",
+        api_base=None, max_rounds=20, log_dir="logs", run_id="r1", context_size="30000",
+        api_timeout="3600", claude_oauth=True,
+    )
+    assert "--llm.api_timeout=3600" in cmd
+
+
+def test_main_defaults_the_llm_turn_timeout_to_this_apps_own_scan_ceiling(tmp_path, monkeypatch):
+    # 3600s is config._MAX_TIMEOUT_S — this app's own hard ceiling for a whole scan, so it
+    # can never make one LLM turn outlast the scan itself. No SAFETYWEBBING_HB_LLM_API_TIMEOUT
+    # override is set here: this pins the *default*.
+    monkeypatch.delenv("SAFETYWEBBING_HB_LLM_API_TIMEOUT", raising=False)
+    monkeypatch.setenv("SAFETYWEBBING_LLM_AUTH", "claude_oauth")
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home" / ".claude").mkdir(parents=True)
+    (tmp_path / "home" / ".claude" / ".credentials.json").write_text("{}")
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    runs_root = tmp_path / "runs"
+    cli.main([
+        "--goal", "pentest", "--target", "http://127.0.0.1:3000", "--run-id", "r1",
+        "--runs-root", str(runs_root), "--workspace-root", str(tmp_path / "ws"),
+    ])
+    assert "--llm.api_timeout=3600" in seen["cmd"]
 
 
 def test_main_claude_oauth_without_credentials_fails_clearly(tmp_path, monkeypatch):

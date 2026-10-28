@@ -124,7 +124,7 @@ def _claude_credentials_present() -> bool:
 
 def _build_wintermute_cmd(
     *, target: str, goal: str, model: str, api_base: str | None, max_rounds: int, log_dir: Path,
-    run_id: str, context_size: str, claude_oauth: bool = False,
+    run_id: str, context_size: str, api_timeout: str, claude_oauth: bool = False,
 ) -> list[str]:
     # claude_oauth runs through run_wintermute.py (same argv, same hackingBuddyGPT CLI
     # parser underneath) so claude_bridge.install() can patch LiteLLM before wintermute's
@@ -137,6 +137,7 @@ def _build_wintermute_cmd(
         f"--host={target}",
         f"--llm.model={model}",
         f"--llm.context_size={context_size}",
+        f"--llm.api_timeout={api_timeout}",
         f"--limits.max_rounds={max_rounds}",
         f"--log.log_dir={log_dir}",
         f"--log.tag={run_id}",
@@ -219,6 +220,13 @@ def main(argv: list[str] | None = None) -> int:
             api_key, display_model, api_base = _resolve_llm(args.model)
             model = display_model
         context_size = os.environ.get("SAFETYWEBBING_HB_LLM_CONTEXT_SIZE", "30000")
+        # hackingBuddyGPT's own default is 300s for a single LLM turn (utils/llm.py). A real
+        # tool-calling turn through our Claude Code bridge routinely takes longer (PentestGPT
+        # episodes against the same targets measured up to ~480s for one turn), so 300s was
+        # the proximate cause of every genuine hackingBuddy crash seen in the pilot smoke runs
+        # (ClaudeBridgeError: "claude timed out after 300s"). 3600s is this app's own hard
+        # ceiling for a whole scan (config._MAX_TIMEOUT_S) — generous for one turn.
+        api_timeout = os.environ.get("SAFETYWEBBING_HB_LLM_API_TIMEOUT", "3600")
 
         workspace = Path(args.workspace_root) if args.workspace_root else runs_root.parent
         workspace.mkdir(parents=True, exist_ok=True)
@@ -231,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
         cmd = _build_wintermute_cmd(
             target=target, goal=goal, model=model, api_base=api_base,
             max_rounds=args.max_decisions, log_dir=log_dir, run_id=run_id,
-            context_size=context_size, claude_oauth=claude_oauth,
+            context_size=context_size, api_timeout=api_timeout, claude_oauth=claude_oauth,
         )
         print(f"[safetywebbing-hb] running: {' '.join(cmd)}", flush=True)
         # Fixed argv, no shell; we inspect the result ourselves rather than raising.

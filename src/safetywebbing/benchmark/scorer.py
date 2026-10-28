@@ -16,7 +16,15 @@ import re
 from pydantic import BaseModel
 
 from ..models import Finding, Severity
-from .manifest import Endpoint, JuiceChallengeOracle, Manifest, TraceMatchOracle, Vuln
+from .manifest import (
+    Endpoint,
+    FileOracle,
+    JuiceChallengeOracle,
+    KeyOracle,
+    Manifest,
+    TraceMatchOracle,
+    Vuln,
+)
 from .result import FailureKind, TrialResult
 
 _LOW = Severity.low.rank
@@ -81,9 +89,11 @@ def touches(finding: Finding, endpoint: Endpoint) -> bool:
 
 
 def _oracle_satisfied(
-    oracle: JuiceChallengeOracle | TraceMatchOracle, trial: TrialResult, findings: list[Finding]
+    oracle: JuiceChallengeOracle | FileOracle | TraceMatchOracle,
+    trial: TrialResult,
+    findings: list[Finding],
 ) -> bool:
-    if isinstance(oracle, JuiceChallengeOracle):
+    if isinstance(oracle, KeyOracle):  # juice_challenge or file_oracle: server-confirmed key
         return oracle.key in trial.oracle_newly_solved
     # trace_match: when both patterns are given they must hold on the SAME request/response pair.
     for f in findings:
@@ -147,7 +157,7 @@ def score_trial(trial: TrialResult, manifest: Manifest | None) -> ScoredTrial:
             and not any(touches(f, ep) for ep in every_endpoint)
         )
         listed = {
-            o.key for v in manifest.vulns for o in v.oracles if isinstance(o, JuiceChallengeOracle)
+            o.key for v in manifest.vulns for o in v.oracles if isinstance(o, KeyOracle)
         }
         off_manifest = sorted(k for k in trial.oracle_newly_solved if k not in listed)
 

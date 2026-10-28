@@ -38,7 +38,7 @@ class Provenance(BaseModel):
 class TrialResult(BaseModel):
     run_id: str
     suite: str  # "smoke" | "pilot" | "stage-a" ... — only stage-a onwards freezes thresholds
-    target: Literal["juice-shop", "dvwa"]
+    target: Literal["juice-shop", "dvwa", "vulnshop"]
     config: str
     scan_type: str
     agent: str

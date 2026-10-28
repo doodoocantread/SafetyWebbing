@@ -37,6 +37,16 @@ class JuiceChallengeOracle(BaseModel):
     key: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9]{2,63}$")
 
 
+class FileOracle(BaseModel):
+    """A target that confirms exploitation server-side by appending a marker to a file the
+    runner snapshots before/after a trial (e.g. VulnShop writes the exploited vuln id, V01…,
+    to data/oracle.jsonl). Like `juice_challenge`, `key` is matched against the trial's
+    `oracle_newly_solved`; unlike it, it is not tied to Juice Shop's /api/Challenges."""
+
+    kind: Literal["file_oracle"]
+    key: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9]{2,63}$")
+
+
 class TraceMatchOracle(BaseModel):
     """A request/response pair in the agent's trace that proves exploitation (used where
     the target has no solved-state, e.g. DVWA). Patterns are regexes; when both are given,
@@ -63,7 +73,11 @@ class TraceMatchOracle(BaseModel):
         return self
 
 
-Oracle = Annotated[JuiceChallengeOracle | TraceMatchOracle, Field(discriminator="kind")]
+Oracle = Annotated[
+    JuiceChallengeOracle | FileOracle | TraceMatchOracle, Field(discriminator="kind")
+]
+# Oracle kinds whose `key` is matched against the trial's server-confirmed solved set.
+KeyOracle = (JuiceChallengeOracle, FileOracle)
 
 
 class Endpoint(BaseModel):
@@ -148,7 +162,7 @@ class Vuln(BaseModel):
 
 
 class Manifest(BaseModel):
-    target: Literal["juice-shop", "dvwa"]
+    target: Literal["juice-shop", "dvwa", "vulnshop"]
     # Which configuration of the target this describes ("default", or a DVWA security level).
     config: str
     # Exactly which build was read to write this manifest (version / commit). Results record

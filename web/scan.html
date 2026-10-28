@@ -238,7 +238,10 @@ function App() {
                 <input list="agent-models" value={model} onChange={e => setModel(e.target.value)}
                   placeholder={tr("mặc định của Claude Code", "Claude Code default")} spellcheck="false" />
                 <datalist id="agent-models">
-                  {["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5", "claude-fable-5-1"]
+                  {/* 4.x first: the 5.x models' real-time cyber safeguards often block a
+                      pentest prompt outright, so these are the ones that actually run a scan. */}
+                  {["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5",
+                    "claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5", "claude-fable-5-1"]
                     .map(m => <option key={m} value={m} />)}
                 </datalist>
               </div>

@@ -14,12 +14,26 @@ from .models import Report
 
 
 def default_llm_model() -> str:
-    return os.environ.get("SAFETYWEBBING_LLM_MODEL", "claude-opus-5-5")
+    # A 4.x model: the 5.x line is refused outright on security evidence by the provider's
+    # real-time cyber safeguards, which would silently drop every label back to the heuristic.
+    return os.environ.get("SAFETYWEBBING_LLM_MODEL", "claude-sonnet-4-6")
 
 
 def default_labeler() -> Labeler:
-    """LLM labeler when a key is set, else the offline heuristic one."""
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    """Which labeler builds a report's narrative.
+
+    SAFETYWEBBING_LABELER chooses explicitly: `heuristic` (offline), `claude-cli` (the host's
+    Claude Code login through `claude -p`, no API key) or `api` (Anthropic API, needs a key).
+    Unset: the API labeler when ANTHROPIC_API_KEY is set, else the heuristic one. The CLI labeler
+    is never picked implicitly: it spends the user's Claude session on every finding."""
+    choice = os.environ.get("SAFETYWEBBING_LABELER", "").strip().lower()
+    if choice == "heuristic":
+        return HeuristicLabeler()
+    if choice == "claude-cli":
+        from .labeling_llm import ClaudeCLILabeler
+
+        return ClaudeCLILabeler(model=default_llm_model())
+    if choice == "api" or (not choice and os.environ.get("ANTHROPIC_API_KEY")):
         from .labeling_llm import LLMLabeler
 
         return LLMLabeler(model=default_llm_model())

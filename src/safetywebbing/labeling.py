@@ -297,8 +297,13 @@ class HeuristicLabeler:
 
 
 def label_findings(findings: list[Finding], labeler: Labeler) -> list[Finding]:
-    for f in findings:
-        f.label = labeler.label(f)
+    label_many = getattr(labeler, "label_many", None)  # a labeler that can run calls at once
+    if label_many is not None:
+        for f, lbl in zip(findings, label_many(findings), strict=True):
+            f.label = lbl
+    else:
+        for f in findings:
+            f.label = labeler.label(f)
     # Most severe first.
     findings.sort(
         key=lambda f: f.label.severity.rank if f.label else -1, reverse=True

@@ -64,17 +64,32 @@ def docker_status(image: str) -> dict[str, Any]:
 
 
 def labeler_status() -> dict[str, Any]:
+    choice = os.environ.get("SAFETYWEBBING_LABELER", "").strip().lower()
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     has_sdk = importlib.util.find_spec("anthropic") is not None
-    effective = "llm" if has_key and has_sdk else "heuristic"
+    has_cli = shutil.which("claude") is not None
     note = None
-    if has_key and not has_sdk:
-        note = ("Đã đặt ANTHROPIC_API_KEY nhưng chưa cài package `anthropic` — "
-                "mọi finding đang âm thầm rơi về heuristic.")
-    elif not has_key:
-        note = "Chưa đặt ANTHROPIC_API_KEY — nhãn do bộ luật heuristic offline gán."
-    return {"api_key_set": has_key, "sdk_installed": has_sdk, "effective": effective,
-            "model": default_llm_model() if effective == "llm" else None, "note": note}
+    if choice == "heuristic":
+        effective = "heuristic"
+        note = "SAFETYWEBBING_LABELER=heuristic — nhãn do bộ luật offline gán."
+    elif choice == "claude-cli":
+        effective = "llm-cli" if has_cli else "heuristic"
+        if not has_cli:
+            note = "SAFETYWEBBING_LABELER=claude-cli nhưng không tìm thấy lệnh `claude` — đang dùng heuristic."
+    elif choice == "api" or (not choice and has_key):
+        effective = "llm" if has_key and has_sdk else "heuristic"
+        if has_key and not has_sdk:
+            note = ("Đã đặt ANTHROPIC_API_KEY nhưng chưa cài package `anthropic` — "
+                    "mọi finding đang âm thầm rơi về heuristic.")
+        elif not has_key:
+            note = "SAFETYWEBBING_LABELER=api nhưng chưa đặt ANTHROPIC_API_KEY — đang dùng heuristic."
+    else:
+        effective = "heuristic"
+        note = ("Chưa đặt ANTHROPIC_API_KEY — nhãn do bộ luật heuristic offline gán. "
+                "Đặt SAFETYWEBBING_LABELER=claude-cli để dùng phiên Claude Code thay cho API key.")
+    return {"api_key_set": has_key, "sdk_installed": has_sdk, "cli_available": has_cli,
+            "effective": effective,
+            "model": default_llm_model() if effective in ("llm", "llm-cli") else None, "note": note}
 
 
 def recent_audit(runs_root: Path, limit: int = 100) -> list[dict[str, Any]]:

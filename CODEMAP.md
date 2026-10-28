@@ -37,7 +37,7 @@ SafetyWebbing/
 │   ├── pipeline.py        (42)      # build_report(): RunResult → adapt → label → Report
 │   ├── adapter.py         (94)      # ★ FACT: summary.json ⨝ traces/ → list[Finding] (không LLM)
 │   ├── labeling.py       (127)      # Labeler Protocol + HeuristicLabeler (offline) + label_findings()
-│   ├── labeling_llm.py   (101)      # LLMLabeler (Anthropic, import lười, fallback heuristic)
+│   ├── labeling_llm.py   (101)      # LLMLabeler (Anthropic API) + ClaudeCLILabeler (`claude -p`, không cần key); fallback heuristic
 │   ├── owasp.py           (41)      # bảng tĩnh CWE → OWASP Top 10 2021 (không cho LLM bịa)
 │   ├── report.py          (84)      # Report → Markdown
 │   └── engines/
@@ -256,7 +256,7 @@ tool_result.call_id ───────────► sự kiện tool_call c
 | `labeling.py` | `Labeler` (Protocol), `HeuristicLabeler`, `label_findings` | Luật: SQLi bypass (critical), SQLi lỗi 500 (medium), XSS phản chiếu (high), 500 (low), 401/403 (info) |
 | `labeling_llm.py` | `LLMLabeler(model, api_key)` | System prompt tiếng Việt; evidence đóng khung `<EVIDENCE>…</EVIDENCE>` (chống prompt injection); lỗi bất kỳ → fallback heuristic |
 | `owasp.py` | `owasp_for_cwe("CWE-89")`, `CWE_TO_OWASP` | 22 CWE → các nhóm A01/A02/A03/A05/A07/A08/A10 (2021) |
-| `pipeline.py` | `build_report(result, labeler=None)`, `default_labeler()` | Có `ANTHROPIC_API_KEY` → LLM (model mặc định `claude-opus-5-5`, đổi bằng `SAFETYWEBBING_LLM_MODEL`), không thì heuristic |
+| `pipeline.py` | `build_report(result, labeler=None)`, `default_labeler()` | `SAFETYWEBBING_LABELER` chọn rõ (`heuristic`/`claude-cli`/`api`); không đặt thì có `ANTHROPIC_API_KEY` → LLM (model mặc định `claude-sonnet-4-6`, đổi bằng `SAFETYWEBBING_LLM_MODEL`), không thì heuristic |
 | `report.py` | `to_markdown(report)` | Cắt response ở 1.200 ký tự; có cảnh báo khi run không hoàn tất |
 
 ### API HTTP (`api.py`)

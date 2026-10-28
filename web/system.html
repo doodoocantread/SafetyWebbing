@@ -74,8 +74,9 @@ function LabelerCard({l}) {
   return <div className="card">
     <div className="card-h"><p className="card-title">{tr("Gán nhãn báo cáo", "Report labeling")}</p></div>
     <div className="card-b">
-      <Row k={tr("Đang dùng", "In use")}>{l.effective === "llm" ? <Pill kind="ok">LLM · {l.model}</Pill> : <Pill kind="off">Heuristic (offline)</Pill>}</Row>
+      <Row k={tr("Đang dùng", "In use")}>{l.effective === "llm" ? <Pill kind="ok">LLM · {l.model}</Pill> : l.effective === "llm-cli" ? <Pill kind="ok">{tr("LLM qua phiên Claude Code", "LLM via Claude Code login")} · {l.model}</Pill> : <Pill kind="off">Heuristic (offline)</Pill>}</Row>
       <Row k="ANTHROPIC_API_KEY">{l.api_key_set ? <Pill kind="ok">{tr("Đã đặt", "Set")}</Pill> : <Pill kind="off">{tr("Chưa đặt", "Not set")}</Pill>}</Row>
+      <Row k={tr("Lệnh claude (CLI)", "claude CLI")}>{l.cli_available ? <Pill kind="ok">{tr("Có", "Found")}</Pill> : <Pill kind="off">{tr("Không có", "Not found")}</Pill>}</Row>
       <Row k={tr("Package anthropic", "anthropic package")}>{l.sdk_installed ? <Pill kind="ok">{tr("Đã cài", "Installed")}</Pill> : <Pill kind="off">{tr("Chưa cài", "Not installed")}</Pill>}</Row>
       {l.note && <div className={"hint" + (l.api_key_set && !l.sdk_installed ? " err" : "")}>{be(l.note)}</div>}
       <div className="hint">{tr(<>Nhãn chỉ <i>diễn giải</i> bằng chứng; CWE → OWASP luôn lấy từ bảng tĩnh.</>, <>Labels only <i>interpret</i> the evidence; CWE → OWASP always comes from a static table.</>)}</div>

@@ -20,7 +20,7 @@
   "provenance": {
     "repo_commit": "05cf783",
     "repo_dirty": false,
-    "protocol_sha256": "55f2732ce872a4df1a98a857fa80a1934a1ddbab27d27b872343dc9597f3afbb",
+    "protocol_sha256": "95269cc70544262379ab17dcb169b915b80ff2d0f6513680eb5393a2e0337063",
     "manifest_sha256": "0b1e1f548a258ea39ea73747cbff0bc171492e69c8ec3b3f60b23089dfc70f2c",
     "target_reference": "vulnshop @ simulatorwebbing 2b04039 (14 vulns, 8 controls); app on 127.0.0.1:5050"
   },

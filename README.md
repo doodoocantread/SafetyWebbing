@@ -123,6 +123,8 @@ Findings are de-duplicated across scans. The fingerprint is target + CWE (or cla
 
 What SafetyWebbing finds on applications whose weaknesses are known, and where it goes wrong. Each recorded run is scored against a ground-truth manifest (`benchmark/targets/`) in two independent ways: whether the target's own oracle confirmed the exploit, and whether the report carries a matching finding. Rates are shown as counts with a 95% Wilson interval. A run that did not complete is listed as **inconclusive** with its cause (provider safety filter or agent error), never counted as "clean". The page only reads the committed files in `benchmark/results/`; it cannot start a run. The method, thresholds and known limits are in [`benchmark/PROTOCOL.md`](benchmark/PROTOCOL.md). Results so far are pilot (smoke) data and are labelled as such.
 
+![Benchmark page: per-cell results and the weakness matrix across agents](docs/screenshots/07-benchmark.png)
+
 ### Method & Contributions (`/about`)
 
 A static page written for the science-project audience: what PentestGPT already does, what SafetyWebbing adds on top, the pipeline, the safety design, the split between facts and narrative, and the project's limits.

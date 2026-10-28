@@ -21,6 +21,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .audit import record_scan
+from .benchmark.aggregate import build_payload as build_benchmark_payload
+from .benchmark.manifest import ManifestError
+from .benchmark.result import ResultError
 from .config import (
     AGENTS,
     DEFAULT_AGENT,
@@ -64,6 +67,7 @@ _REPO = Path(__file__).resolve().parents[2]
 _WEB_DIR = _REPO / "web"
 _SAMPLES = _REPO / "samples" / "runs"
 _LIVE_RUNS = _REPO / "runs"
+_BENCHMARK_DIR = _REPO / "benchmark"
 
 # Live-scan resource guards (single-host tool — keep Docker containers bounded).
 _MAX_CONCURRENT_SCANS = 2
@@ -74,7 +78,20 @@ app = FastAPI(title="SafetyWebbing", version="0.1.0")
 
 replay_engine = ReplayEngine(runs_root=_SAMPLES)
 live_engine = LiveAgentEngine(runs_root=_LIVE_RUNS)  # mode "docker" (isolated)
-local_engine = LocalAgentEngine(runs_root=_LIVE_RUNS, search_dirs=(_REPO,))  # mode "direct"
+# mode "direct" — one engine per agent that supports it (config.AGENTS[...].modes).
+local_engine = LocalAgentEngine(runs_root=_LIVE_RUNS, search_dirs=(_REPO,))  # pentestgpt
+local_hb_engine = LocalAgentEngine(  # hackingbuddy_claude: its wrapper out of .hb-venv
+    runs_root=_LIVE_RUNS, search_dirs=(_REPO,),
+    exe="safetywebbing-hackingbuddy-agent", venv_dir=".hb-venv",
+    cmd_env="SAFETYWEBBING_HB_AGENT_CMD",
+    extra_env={"SAFETYWEBBING_LLM_AUTH": "claude_oauth"},  # pick the Claude-session LLM path
+)
+# Which local engine runs each agent in direct mode. An agent absent here is docker-only
+# (the mode/agent gate in start_scan rejects it before this is consulted).
+_LOCAL_ENGINES: dict[str, LocalAgentEngine] = {
+    "pentestgpt": local_engine,
+    "hackingbuddy_claude": local_hb_engine,
+}
 
 # In-memory job store (single-user tool; no DB by design — ARCHITECTURE.md §4).
 _jobs: dict[str, dict[str, Any]] = {}
@@ -163,8 +180,11 @@ def modes() -> list[dict[str, Any]]:
     direct_reason = None
     if not direct_mode_enabled():
         direct_reason = f"Server chưa bật. Khởi động với {DIRECT_MODE_ENV}=1."
-    elif local_engine.command() is None:
-        direct_reason = "Không tìm thấy lệnh pentestgpt-agent (xem README)."
+    elif all(e.command() is None for e in _LOCAL_ENGINES.values()):
+        # No direct-capable agent is installed. Per-agent availability is enforced in
+        # start_scan; this is only the UI hint for whether to offer "direct" at all.
+        exes = ", ".join(e.exe for e in _LOCAL_ENGINES.values())
+        direct_reason = f"Không tìm thấy CLI agent nào cho chế độ direct ({exes}; xem README)."
     return [
         {"key": "docker", "label": "Docker (cô lập)", "available": True, "reason": None},
         {"key": "direct", "label": "Trực tiếp trên máy (không cô lập)",
@@ -287,6 +307,21 @@ def system() -> dict[str, Any]:
 def audit_log(limit: int = 100) -> list[dict[str, Any]]:
     """Newest-first tail of runs/audit.log (safety rule 5: every scan is recorded)."""
     return recent_audit(_LIVE_RUNS, limit)
+
+
+@app.get("/api/benchmark")
+def benchmark() -> dict[str, Any]:
+    """Recorded benchmark trials scored against ground truth (benchmark/PROTOCOL.md).
+
+    Read-only by design: results come from files committed under benchmark/results/, and this
+    app has no endpoint that starts a benchmark run (an agent run is a CLI, operator-only act)."""
+    try:
+        return build_benchmark_payload(
+            results_dir=_BENCHMARK_DIR / "results", targets_dir=_BENCHMARK_DIR / "targets",
+            protocol_path=_BENCHMARK_DIR / "PROTOCOL.md", repo_root=_REPO,
+        )
+    except (ManifestError, ResultError) as exc:
+        raise HTTPException(500, f"benchmark data is invalid: {exc}") from None
 
 
 async def _run_live_job(
@@ -427,9 +462,13 @@ async def start_scan(req: ScanRequest) -> dict[str, str]:
     # Per-scan copy so a requested model/timeout — or the chosen agent's image /
     # auth / key — never leaks into the shared engine used by the next scan.
     if mode == "direct":
-        if local_engine.command() is None:
-            raise HTTPException(400, "direct mode: pentestgpt-agent CLI not found (see README)")
-        engine: Engine = replace(local_engine, model=model, timeout_s=timeout_s)
+        # mode is in agent.modes (checked above), so a direct-capable agent has an engine here.
+        base_engine = _LOCAL_ENGINES[agent.key]
+        if base_engine.command() is None:
+            raise HTTPException(
+                400, f"direct mode: {base_engine.exe} CLI not found (see README)"
+            )
+        engine: Engine = replace(base_engine, model=model, timeout_s=timeout_s)
     else:
         engine = replace(
             live_engine, image=agent.image, auth=agent.auth, model=model, timeout_s=timeout_s,
@@ -512,6 +551,12 @@ def scan_page() -> FileResponse:
 def vulns_page() -> FileResponse:
     """Vulnerabilities across all scans, with triage."""
     return FileResponse(_WEB_DIR / "vulns.html")
+
+
+@app.get("/benchmark")
+def benchmark_page() -> FileResponse:
+    """What SafetyWebbing finds on targets whose weaknesses are known, with its limits stated."""
+    return FileResponse(_WEB_DIR / "benchmark.html")
 
 
 @app.get("/system")

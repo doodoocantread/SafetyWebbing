@@ -50,12 +50,13 @@ def test_agent_records_carry_image_and_auth():
     assert "direct" in pg.modes and "docker" in pg.modes
     hb = agent_for("hackingbuddy")
     assert hb.image == "safetywebbing-hackingbuddy" and hb.auth == "llm_api_key"
-    assert hb.modes == ("docker",)  # hackingBuddy is container-only
+    assert hb.modes == ("docker",)  # hackingBuddy (API key) is container-only
     hbc = agent_for("hackingbuddy_claude")
     # Same image as "hackingbuddy" — the claude_oauth path lives inside it
     # (claude_bridge.py), not in a second image — but PentestGPT's auth.
     assert hbc.image == hb.image and hbc.auth == "claude_oauth"
-    assert hbc.modes == ("docker",)
+    # Like PentestGPT, it also runs directly on the host (its own .hb-venv wrapper).
+    assert hbc.modes == ("docker", "direct")
 
 
 def _forwarded_secrets(cmd: list[str]) -> list[str]:
@@ -222,7 +223,8 @@ def test_agents_endpoint_hackingbuddy_claude_needs_no_key(monkeypatch):
     assert hbc["available"] is True
     assert hbc["needs_key"] is False
     assert hbc["has_server_key"] is False  # only meaningful for needs_key agents
-    assert hbc["modes"] == ["docker"]
+    # Runs both in a container and, via its own .hb-venv wrapper, directly on the host.
+    assert hbc["modes"] == ["docker", "direct"]
 
 
 def test_agents_endpoint_reports_server_key(monkeypatch):
@@ -348,18 +350,24 @@ async def test_hackingbuddy_scan_routes_per_scan_key(tmp_path, monkeypatch):
     api._jobs.clear()
 
 
-async def test_hackingbuddy_claude_rejects_direct_mode(monkeypatch):
+async def test_hackingbuddy_claude_accepts_direct_mode(monkeypatch):
+    """direct is now a supported mode for this agent: the mode gate lets it through, and it
+    only fails later when its own CLI is not installed (not with 'does not support mode')."""
     from fastapi import HTTPException
 
     from safetywebbing import api
 
     monkeypatch.setenv("SAFETYWEBBING_ALLOW_DIRECT", "1")
+    monkeypatch.setattr(api.local_hb_engine, "agent_cmd", None)
+    monkeypatch.setattr(api.local_hb_engine, "search_dirs", ())
+    monkeypatch.setattr("safetywebbing.engines.local.shutil.which", lambda _: None)
     with pytest.raises(HTTPException) as exc:
         await api.start_scan(api.ScanRequest(
             target="http://127.0.0.1:3000", scan_type="sqli",
             agent="hackingbuddy_claude", mode="direct"))
     assert exc.value.status_code == 400
-    assert "mode" in exc.value.detail
+    assert "does not support mode" not in exc.value.detail
+    assert "safetywebbing-hackingbuddy-agent CLI not found" in exc.value.detail
 
 
 async def test_hackingbuddy_claude_scan_routes_image_and_auth_without_any_key(tmp_path, monkeypatch):

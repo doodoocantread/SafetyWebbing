@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SafetyWebbing — Benchmark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="/static/theme-init.js"></script>
+<link rel="stylesheet" href="/static/styles.css" />
+<script defer src="/static/codefall.js"></script>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="/static/shared.jsx"></script>
+<script type="text/babel">
+document.title = "SafetyWebbing — Benchmark";
+
+const Pill = ({kind, title, children}) => <span className={"pill " + kind} title={title}>{children}</span>;
+const pct = x => Math.round(x * 100) + "%";
+const short = s => (s || "").slice(0, 7);
+
+/* Verdicts are decided by the backend (benchmark/aggregate.py); this only labels them. */
+const VERDICT = {
+  pass:         {kind: "ok",   label: tr("Đạt ngưỡng", "Meets threshold")},
+  fail:         {kind: "bad",  label: tr("Dưới ngưỡng", "Below threshold")},
+  pilot_only:   {kind: "warn", label: tr("Thí điểm — chưa chấm", "Pilot — not judged")},
+  insufficient: {kind: "off",  label: tr("Không đủ dữ liệu", "Not enough data")},
+  report_only:  {kind: "off",  label: tr("Chỉ báo cáo", "Report only")},
+  no_manifest:  {kind: "off",  label: tr("Chưa có ground truth", "No ground truth yet")},
+};
+/* Why a run did not complete. Neither means "no vulnerabilities found". */
+const FAILURE = {
+  safety_filter: tr("Bị bộ lọc an toàn của nhà cung cấp model chặn", "Blocked by the model provider's safety filter"),
+  agent_error:   tr("Lỗi bên trong agent", "Internal agent error"),
+  unknown:       tr("Không rõ nguyên nhân", "Unknown cause"),
+};
+const TARGET_LABEL = {"juice-shop": "OWASP Juice Shop", dvwa: "DVWA"};
+const targetName = (t, c) => `${TARGET_LABEL[t] || t} · ${c}`;
+const modelShort = m => (m || "").replace(/^claude-/, "").replace(/-\d+-\d+$/, "");
+// Short agent tag so two runs of the same model by different agents stay distinguishable.
+const AGENT_SHORT = {pentestgpt: "PentestGPT", hackingbuddy_claude: "hBuddy·Claude", hackingbuddy: "hBuddy"};
+const agentShort = a => AGENT_SHORT[a] || a;
+
+function Rate({r}) {
+  if (!r) return <span className="muted">—</span>;
+  return <span><b>{r.k}/{r.n}</b>{r.ci && <span className="muted"> · 95% CI {pct(r.ci[0])}–{pct(r.ci[1])}</span>}</span>;
+}
+
+function Tiles({s}) {
+  const kinds = Object.entries(s.failure_kinds || {}).map(([k, n]) => `${FAILURE[k] || k}: ${n}`).join(" · ");
+  const tiles = [
+    {n: s.runs, l: tr("Run đã ghi", "Runs recorded")},
+    {n: s.valid, l: tr("Hợp lệ", "Valid"), cls: s.valid ? "" : "high"},
+    {n: s.inconclusive, l: tr("Không kết luận", "Inconclusive"), cls: s.inconclusive ? "crit" : ""},
+    {n: "$" + (s.cost_usd || 0).toFixed(2), l: tr("Tổng chi phí", "Total cost")},
+  ];
+  return <>
+    <div className="kpis">
+      {tiles.map((t, i) => <div key={i} className={"kpi " + (t.cls || "")}><div className="n">{t.n}</div><div className="l">{t.l}</div></div>)}
+    </div>
+    {kinds && <div className="hint" style={{marginTop: 0}}>{tr("Run không kết luận được: ", "Inconclusive runs: ")}{kinds}</div>}
+  </>;
+}
+
+function StatusBanner({data}) {
+  const p = data.protocol;
+  const note = data.summary.pilot_only
+    ? tr(<><b>Đây là dữ liệu thí điểm (smoke), chưa phải kết quả.</b> Mới có {data.summary.runs} run, chưa ngưỡng nào được đóng băng và chưa ô nào được chấm đạt/không đạt.
+          Một run không kết luận được <b>không</b> có nghĩa là "không có lỗ hổng". Mọi con số bên dưới chỉ để kiểm tra cách đo, không dùng để so sánh model.</>,
+         <><b>This is pilot (smoke) data, not results.</b> Only {data.summary.runs} runs so far, no threshold is frozen and no cell is judged pass/fail.
+          An inconclusive run does <b>not</b> mean "no vulnerabilities". Every number below only tests the measuring method — do not compare models with it.</>)
+    : tr(<>Ngưỡng đã được đóng băng theo giao thức.</>, <>Thresholds are frozen per the protocol.</>);
+  return <div className="warnbox neutral"><span>🧪</span><div>{note}
+    <div className="hint" style={{margin: "6px 0 0"}}>
+      {tr("Giao thức", "Protocol")} <span className="mono">{p.version || "?"}</span> · sha256 <span className="mono">{short(p.sha256)}</span>
+      {" · "}{p.frozen ? tr("ngưỡng đã đóng băng", "thresholds frozen") : tr("ngưỡng chưa đóng băng", "thresholds not frozen yet")}
+    </div></div></div>;
+}
+
+function CellsTable({cells}) {
+  if (!cells.length) return <div className="empty">{tr("Chưa có run nào được ghi vào benchmark/results/.", "No runs recorded in benchmark/results/ yet.")}</div>;
+  const showFp = cells.some(c => c.false_positive);
+  return <div className="tbl-wrap"><table className="tbl">
+    <thead><tr>
+      <th>Target</th><th>Agent</th><th>{tr("Loại scan", "Scan")}</th><th>Model</th>
+      <th className="num">{tr("Run hợp lệ", "Valid runs")}</th>
+      <th>{tr("Khai thác (oracle xác nhận)", "Exploited (oracle-confirmed)")}</th>
+      <th>{tr("Báo cáo đúng / đã khai thác", "Correctly reported / exploited")}</th>
+      {showFp && <th>{tr("Báo nhầm trên đối chứng", "False positive on control")}</th>}
+      <th>{tr("Phán quyết", "Verdict")}</th><th>{tr("Ghi chú", "Notes")}</th>
+    </tr></thead>
+    <tbody>{cells.map((c, i) => {
+      const v = VERDICT[c.verdict] || VERDICT.report_only;
+      const notes = [];
+      if (c.small_sample) notes.push(tr("n quá nhỏ để kết luận", "n too small to conclude"));
+      Object.entries(c.failure_kinds || {}).forEach(([k, n]) => notes.push(`${n}× ${FAILURE[k] || k}`));
+      if (c.t1_min != null) notes.push(tr(`ngưỡng khai thác ≥ ${pct(c.t1_min)}`, `exploit threshold ≥ ${pct(c.t1_min)}`));
+      return <tr key={i}>
+        <td>{targetName(c.target, c.config)}</td>
+        <td className="mono" title={c.agent}>{agentShort(c.agent)}</td>
+        <td className="mono">{c.scan_type}</td>
+        <td className="mono" title={c.model}>{modelShort(c.model)}</td>
+        <td className="num">{c.valid}/{c.runs}</td>
+        <td>{c.scored ? <Rate r={c.exploit} /> : <span className="muted">—</span>}</td>
+        <td>{c.scored ? <Rate r={c.fidelity} /> : <span className="muted">—</span>}</td>
+        {showFp && <td><Rate r={c.false_positive} /></td>}
+        <td><Pill kind={v.kind}>{v.label}</Pill></td>
+        <td className="wrapcell muted">{notes.join(" · ") || "—"}</td>
+      </tr>;
+    })}</tbody>
+  </table></div>;
+}
+
+/* One row per weakness in the ground-truth manifest, one column per recorded run. */
+function symbolFor(trial, vuln) {
+  const o = trial.outcomes.find(x => x.vuln_id === vuln.id);
+  if (!o) return {sym: "–", kind: "off", title: tr("Loại scan này không hỏi mục này", "This scan type does not ask about it")};
+  if (o.exploited) return {sym: "✓", kind: "ok", title: tr("Oracle xác nhận đã khai thác", "Oracle confirmed it was exploited")};
+  if (trial.inconclusive) return {sym: "…", kind: "off", title: tr("Run không kết luận được", "Run was inconclusive")};
+  if (o.reported) return {sym: "~", kind: "warn", title: tr("Báo cáo có finding khớp, nhưng oracle không xác nhận khai thác", "The report has a matching finding, but the oracle did not confirm exploitation")};
+  return {sym: "✗", kind: "bad", title: tr("Không khai thác được và không có finding khớp", "Not exploited and no matching finding")};
+}
+
+function Matrix({manifest, trials}) {
+  const runs = trials.filter(t => t.target === manifest.target && t.config === manifest.config && t.scored);
+  if (!runs.length) return null;
+  return <div className="card">
+    <div className="card-h"><p className="card-title">{tr("Ma trận lỗ hổng", "Weakness matrix")} · {targetName(manifest.target, manifest.config)}</p></div>
+    <div className="card-b">
+      <div className="hint" style={{marginTop: 0}}>
+        {tr(<><b>✓</b> oracle xác nhận khai thác · <b>~</b> có finding khớp nhưng chưa xác nhận · <b>✗</b> bỏ lỡ · <b>…</b> run không kết luận · <b>–</b> loại scan này không hỏi.
+          Danh sách là <i>tập con có chọn lọc</i>: finding ngoài danh sách là "chưa xác minh", không phải báo nhầm.</>,
+            <><b>✓</b> oracle confirmed exploitation · <b>~</b> matching finding, not confirmed · <b>✗</b> missed · <b>…</b> inconclusive run · <b>–</b> not asked by this scan type.
+          The list is a <i>curated subset</i>: a finding outside it is "unverified", not a false positive.</>)}</div>
+      <div className="tbl-wrap"><table className="tbl">
+        <thead><tr>
+          <th>{tr("Lỗ hổng", "Weakness")}</th><th>CWE</th><th>Scan</th>
+          {runs.map(t => <th key={t.run_id} title={t.run_id} style={{textAlign: "center"}}>{agentShort(t.agent)}<br/>{modelShort(t.model)}<br/><span className="mono">{t.scan_type}</span></th>)}
+        </tr></thead>
+        <tbody>{manifest.vulns.map(v => {
+          const muted = v.scoring !== "scored";
+          return <tr key={v.id} style={muted ? {opacity: .6} : undefined}>
+            <td className="wrapcell">{v.title}
+              {v.scoring === "out_of_capability" && <div className="hint" style={{margin: 0}}>{tr("Chạy ở trình duyệt — ngoài khả năng của agent chỉ dùng HTTP, không tính vào recall", "Runs in the browser — beyond an HTTP-only agent, excluded from recall")}</div>}
+              {v.requires_login && <div className="hint" style={{margin: 0}}>{tr("Cần đăng nhập trước", "Needs a login first")}</div>}</td>
+            <td className="mono">{v.cwe}</td>
+            <td className="mono">{v.scan_type}</td>
+            {runs.map(t => { const s = symbolFor(t, v);
+              return <td key={t.run_id} style={{textAlign: "center"}}><Pill kind={s.kind} title={s.title}>{s.sym}</Pill></td>; })}
+          </tr>;
+        })}</tbody>
+      </table></div>
+      <div className="hint">{tr("Phiên bản ground truth: ", "Ground-truth build: ")}<span className="mono">{manifest.reference}</span></div>
+    </div>
+  </div>;
+}
+
+function RunsTable({trials}) {
+  if (!trials.length) return null;
+  return <div className="card">
+    <div className="card-h"><p className="card-title">{tr("Từng run", "Every run")}</p></div>
+    <div className="card-b"><div className="tbl-wrap"><table className="tbl">
+      <thead><tr>
+        <th>Run</th><th>Target</th><th>{tr("Scan / model", "Scan / model")}</th><th>{tr("Trạng thái", "Status")}</th>
+        <th className="num">{tr("Thời gian", "Duration")}</th><th className="num">{tr("Chi phí", "Cost")}</th>
+        <th>{tr("Khai thác", "Exploited")}</th><th className="num">{tr("Finding", "Findings")}</th><th>{tr("Xuất xứ", "Provenance")}</th>
+      </tr></thead>
+      <tbody>{trials.map(t => {
+        const asked = t.outcomes.length, hit = t.outcomes.filter(o => o.exploited).length;
+        const p = t.provenance;
+        return <tr key={t.run_id}>
+          <td className="mono wrapcell">{t.run_id}<div className="hint" style={{margin: 0}}>{t.suite} · {fmtTime(t.started_at)}</div></td>
+          <td>{targetName(t.target, t.config)}</td>
+          <td><span className="mono">{t.scan_type}</span> · {modelShort(t.model)}<div className="hint" style={{margin: 0}}>{agentShort(t.agent)}</div></td>
+          <td className="wrapcell">
+            <StatusPill status={t.status} />
+            {t.failure_kind && <div className="hint" style={{margin: "4px 0 0"}}>{FAILURE[t.failure_kind]}</div>}
+            {t.error && <details><summary>{tr("Chi tiết lỗi", "Error details")}</summary><code>{t.error}</code></details>}
+          </td>
+          <td className="num">{fmtDur(t.wall_duration_s)}</td>
+          <td className="num">${t.cost_usd.toFixed(2)}</td>
+          <td className="wrapcell">
+            {t.scored ? (t.inconclusive ? <span className="muted">{tr("không kết luận", "inconclusive")}</span> : <b>{hit}/{asked}</b>) : <span className="muted">{tr("chưa chấm", "not scored")}</span>}
+            {t.oracle_off_manifest.length > 0 && <div className="hint" style={{margin: "4px 0 0"}}>
+              {tr("Giải được challenge ngoài danh sách: ", "Solved challenges outside the list: ")}<span className="mono">{t.oracle_off_manifest.join(", ")}</span></div>}
+            {t.leak_flags.length > 0 && <details><summary>⚠ {t.leak_flags.length} {tr("cảnh báo rò rỉ (chưa duyệt)", "leak-detector hits (unreviewed)")}</summary>
+              <ul>{t.leak_flags.map((f, i) => <li key={i} className="mono wrapcell">{f}</li>)}</ul></details>}
+          </td>
+          <td className="num">{t.findings_total}{t.unmatched > 0 && <div className="hint" style={{margin: 0}}>{t.unmatched} {tr("chưa xác minh", "unverified")}</div>}</td>
+          <td className="wrapcell"><span className="mono">{short(p.repo_commit)}</span>{p.repo_dirty && " *"}
+            <div className="hint" style={{margin: 0}}>{p.target_reference}</div>
+            {p.inputs_changed && <Pill kind="bad" title={tr("Giao thức hoặc ground truth đã đổi sau khi run này được ghi", "The protocol or ground truth changed after this run was recorded")}>{tr("kết quả cũ", "stale")}</Pill>}
+          </td>
+        </tr>;
+      })}</tbody>
+    </table></div></div>
+  </div>;
+}
+
+function Method({th}) {
+  const t1 = Object.entries(th.t1);
+  return <div className="cols2">
+    <div className="card">
+      <div className="card-h"><p className="card-title">{tr("Ngưỡng của giao thức", "Protocol thresholds")}</p></div>
+      <div className="card-b">
+        <div className="sysrow"><span className="k">T1 {tr("Tỉ lệ khai thác", "Exploit rate")}</span>
+          <span className="v">{t1.map(([k, v]) => <div key={k}><span className="mono">{k}</span> ≥ {pct(v)}</div>)}
+            <div className="hint" style={{margin: 0}}>{tr("các ô khác chỉ báo cáo", "other cells are report-only")}</div></span></div>
+        <div className="sysrow"><span className="k">T2 {tr("Báo cáo đúng / đã khai thác", "Reported / exploited")}</span><span className="v">≥ {pct(th.t2_min)}</span></div>
+        <div className="sysrow"><span className="k">T3 {tr("Run báo nhầm trên đối chứng", "Runs with a false positive on a control")}</span><span className="v">≤ {pct(th.t3_max)}</span></div>
+        <div className="sysrow"><span className="k">T4 {tr("Run lỗi bị hiển thị là \"sạch\"", "Failed runs shown as \"clean\"")}</span><span className="v">0</span></div>
+        <div className="sysrow"><span className="k">T5 {tr("Run hợp lệ trong một ô", "Valid runs in a cell")}</span><span className="v">≥ {pct(th.t5_min_valid)}</span></div>
+        <div className="hint">{tr(<>Các ngưỡng là mức sàn chọn tuỳ ý <i>trước</i> khi có dữ liệu, không phải kết luận khoa học. Chi tiết: <span className="mono">benchmark/PROTOCOL.md</span>.</>,
+          <>Thresholds are floors chosen arbitrarily <i>before</i> any data, not scientific conclusions. Details: <span className="mono">benchmark/PROTOCOL.md</span>.</>)}</div>
+      </div>
+    </div>
+    <div className="card">
+      <div className="card-h"><p className="card-title">{tr("Giới hạn phải đọc cùng kết quả", "Limits to read with the results")}</p></div>
+      <div className="card-b"><ul className="scope-list">
+        <li><b>{tr("n rất nhỏ", "Tiny n")}</b><span>{tr("Mỗi ô chỉ có vài run; khoảng tin cậy rất rộng. So sánh model chỉ ở mức mô tả.", "A cell has only a few runs; intervals are wide. Model comparisons are descriptive only.")}</span></li>
+        <li><b>{tr("Ground truth tự chọn", "Self-curated ground truth")}</b><span>{tr("Danh sách lỗ hổng là tập con do dự án chọn từ mã nguồn target. Oracle có thể đếm thiếu hoặc thừa.", "The list is a subset the project chose from the target's source. Oracles can undercount or overcount.")}</span></li>
+        <li><b>{tr("Lời giải công khai", "Public solutions")}</b><span>{tr("Juice Shop và DVWA được viết nhiều trên mạng; model có thể đã biết trước.", "Juice Shop and DVWA are widely written about; the model may already know them.")}</span></li>
+        <li><b>{tr("Không cô lập", "No isolation")}</b><span>{tr("Chạy ở chế độ direct. Thư mục làm việc rỗng chỉ tránh vô tình thấy repo, không ngăn agent chủ động đi nơi khác.", "Runs use direct mode. An empty working directory only avoids stumbling onto the repo; it does not stop the agent from going elsewhere.")}</span></li>
+        <li><b>{tr("Bộ dò rò rỉ chỉ là bản thử", "Leak detector is a prototype")}</b><span>{tr("Nó từng báo nhầm đường dẫn lưu session của chính Claude CLI. Cảnh báo hiện chưa duyệt và chưa loại run nào.", "It once flagged the Claude CLI's own session-storage path. Hits are unreviewed and no run has been excluded because of them.")}</span></li>
+        <li><b>{tr("Oracle đo khai thác sâu", "The oracle measures deep exploitation")}</b><span>{tr("Mục SQLi của ô tìm kiếm chỉ tính khi agent lấy ra dữ liệu. Run Haiku chứng minh được khác biệt boolean nhưng không trích xuất gì nên bị chấm 0/3 — điểm 0 ở đây không có nghĩa là không tìm ra lỗ hổng.", "The search-box SQLi entries only count when the agent extracts data. The Haiku run proved a boolean difference but extracted nothing, so it scores 0/3 — a zero here does not mean the flaw was not found.")}</span></li>
+        <li><b>{tr("Finding chỉ là đoạn trích", "Findings are excerpts")}</b><span>{tr("Finding giữ đoạn trích do agent chọn, không phải response thô, nên bằng chứng quyết định có thể bị labeler bỏ sót (trong run Haiku, finding mang khác biệt boolean bị gán info).", "A finding keeps an excerpt the agent chose, not the raw response, so the decisive evidence can be missed by the labeler (in the Haiku run the finding carrying the boolean difference was rated info).")}</span></li>
+        <li><b>{tr("Không so sánh engine", "No engine comparison")}</b><span>{tr("Cả PentestGPT và hackingBuddyGPT (phiên Claude Code) đều có run thật, nhưng khác ngân sách, đường LLM và chi phí, nên không có kết luận engine nào tốt hơn. Mỗi ô chỉ vài run.", "Both PentestGPT and hackingBuddyGPT (Claude Code session) have real runs, but with different budgets, LLM paths and cost, so no engine is claimed better. Each cell has only a few runs.")}</span></li>
+      </ul></div>
+    </div>
+  </div>;
+}
+
+function BenchmarkPage() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  async function load() {
+    setLoading(true); setError("");
+    try { setData(await api("/api/benchmark")); } catch (e) { setError(tr("Lỗi: ", "Error: ") + e.message); }
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  return <div>
+    <AppBar active="benchmark" />
+    <div className="wrap">
+      <div className="hero" style={{display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", flexWrap: "wrap"}}>
+        <div style={{flex: "1 1 320px"}}>
+          <h1>Benchmark</h1>
+          <p>{tr("SafetyWebbing tìm được gì trên các ứng dụng đã biết trước lỗ hổng — và nó sai ở đâu. Mọi con số đi kèm số run thật và nguyên nhân của từng run lỗi; run không hoàn tất không bao giờ được tính là \"sạch\".",
+            "What SafetyWebbing finds on applications whose weaknesses are known — and where it goes wrong. Every number comes with the real run count and the cause of each failed run; a run that did not complete is never counted as \"clean\".")}</p>
+        </div>
+        <button className="btn ghost sm" style={{whiteSpace: "nowrap"}} onClick={load} disabled={loading}>
+          {loading ? <span className="spin" /> : tr("↻ Tải lại", "↻ Reload")}</button>
+      </div>
+
+      {error && <div className="hint err">{error}</div>}
+      {!data && !error && <div className="card"><div className="empty"><span className="spin" /></div></div>}
+
+      {data && <>
+        <StatusBanner data={data} />
+        <div className="card"><div className="card-b">
+          <Tiles s={data.summary} />
+          <div className="label" style={{marginTop: 14}}>{tr("Kết quả theo ô (target × scan × model)", "Results per cell (target × scan × model)")}</div>
+          <CellsTable cells={data.cells} />
+          <div className="hint">{tr("Tỉ lệ luôn là số đếm k/n kèm khoảng tin cậy Wilson 95%. Ô có dưới 70% run hợp lệ không hiện tỉ lệ.",
+            "A rate is always a count k/n with a 95% Wilson interval. A cell with under 70% valid runs shows no rate.")}</div>
+        </div></div>
+
+        {data.manifests.map(m => <Matrix key={m.target + m.config} manifest={m} trials={data.trials} />)}
+        <RunsTable trials={data.trials} />
+        <Method th={data.thresholds} />
+
+        <div className="card"><div className="card-h"><p className="card-title">{tr("Tái lập", "Reproduce")}</p></div><div className="card-b">
+          <div className="hint" style={{marginTop: 0}}>{tr(<>Trang này chỉ <b>đọc</b> các file đã commit; nó không có nút chạy benchmark. Dữ liệu thô: <a href="/api/benchmark">/api/benchmark</a>.
+            Runner chính thức chưa có — các run smoke được ghi bằng script thử, ghi lại trong <span className="mono">benchmark/results/*.json</span> cùng commit, phiên bản target và hash của giao thức.</>,
+            <>This page only <b>reads</b> committed files; it has no run button. Raw data: <a href="/api/benchmark">/api/benchmark</a>.
+            The official runner does not exist yet — smoke runs were recorded with a throwaway script, stored in <span className="mono">benchmark/results/*.json</span> with the commit, target version and protocol hash.</>)}</div>
+          <code className="cmd">uv run pytest tests/test_benchmark_*.py</code>
+        </div></div>
+      </>}
+
+      <footer>{FOOTER}</footer>
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<BenchmarkPage />);
+</script>
+</body>
+</html>

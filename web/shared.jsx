@@ -373,7 +373,8 @@ const NAV = [
   {key: "scan",     href: "/scan",    label: tr("Quét mới", "New scan")},
   {key: "history",  href: "/history", label: tr("Lịch sử", "History")},
   {key: "vulns",    href: "/vulns",   label: tr("Lỗ hổng", "Vulnerabilities")},
-  {key: "about",    href: "/about",   label: tr("Phương pháp & Đóng góp", "Method & Contributions")},
+  {key: "benchmark", href: "/benchmark", label: "Benchmark"},
+  {key: "about",   href: "/about",   label: tr("Phương pháp & Đóng góp", "Method & Contributions")},
   {key: "system",   href: "/system",  label: tr("Hệ thống", "System")},
 ];
 

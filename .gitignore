@@ -15,6 +15,7 @@ dist/
 /agent_image/agent-workspaces/
 /agent-workspaces/
 /.agent-venv/
+/.hb-venv/
 *.sqlite3
 
 # Node (inside image build only)

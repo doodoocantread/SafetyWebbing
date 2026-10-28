@@ -8,6 +8,7 @@ import json
 import sys
 import textwrap
 import time
+from dataclasses import replace
 
 import pytest
 
@@ -75,7 +76,7 @@ def test_build_command_without_agent_raises(tmp_path, monkeypatch):
     monkeypatch.setattr("safetywebbing.engines.local.shutil.which", lambda _: None)
     eng = LocalAgentEngine(runs_root=tmp_path / "runs", search_dirs=(tmp_path,))
     assert eng.command() is None
-    with pytest.raises(ScanFailed, match="agent CLI not found"):
+    with pytest.raises(ScanFailed, match="agent CLI 'pentestgpt-agent' not found"):
         eng.build_command(target="http://127.0.0.1:3000", goal="g", run_id="r1")
 
 
@@ -222,6 +223,124 @@ async def test_direct_scan_is_audited_with_mode(tmp_path, monkeypatch):
     assert {e["event"] for e in events} == {"scan_requested", "scan_error"}
     assert all(e["mode"] == "direct" for e in events)
     api._jobs.clear()
+
+
+# --- hackingbuddy_claude on the host (its own wrapper + venv) --------------------
+
+
+def test_resolve_finds_hb_wrapper_in_its_own_venv(tmp_path):
+    import os
+
+    bin_dir, exe = (("Scripts", "safetywebbing-hackingbuddy-agent.exe")
+                    if os.name == "nt" else ("bin", "safetywebbing-hackingbuddy-agent"))
+    path = tmp_path / ".hb-venv" / bin_dir / exe
+    path.parent.mkdir(parents=True)
+    path.write_text("", encoding="utf-8")
+    # The default (pentestgpt) lookup must NOT find it; the hb lookup must.
+    assert resolve_agent_command((tmp_path,), env={}) is None
+    assert resolve_agent_command(
+        (tmp_path,), env={}, exe="safetywebbing-hackingbuddy-agent", venv_dir=".hb-venv"
+    ) == [str(path)]
+
+
+def test_resolve_uses_the_engine_specific_command_env():
+    got = resolve_agent_command(
+        env={"SAFETYWEBBING_HB_AGENT_CMD": "uv run safetywebbing-hackingbuddy-agent"},
+        cmd_env="SAFETYWEBBING_HB_AGENT_CMD",
+    )
+    assert got == ["uv", "run", "safetywebbing-hackingbuddy-agent"]
+    # The pentestgpt var is a different name, so it does not bleed across.
+    assert resolve_agent_command(env={"SAFETYWEBBING_HB_AGENT_CMD": "x"}) is None
+
+
+def test_agent_env_injects_extra_and_still_scrubs_the_api_key():
+    env = agent_env(
+        {"ANTHROPIC_API_KEY": "sk-secret", "PATH": "/bin"},
+        extra={"SAFETYWEBBING_LLM_AUTH": "claude_oauth"},
+    )
+    assert env["SAFETYWEBBING_LLM_AUTH"] == "claude_oauth"
+    assert "ANTHROPIC_API_KEY" not in env  # the bridge wants the OAuth session, not a key
+    assert env["PATH"] == "/bin"
+
+
+def test_hb_engine_launches_its_wrapper_with_the_claude_oauth_env(tmp_path):
+    from safetywebbing import api
+
+    assert api.local_hb_engine.exe == "safetywebbing-hackingbuddy-agent"
+    assert api.local_hb_engine.venv_dir == ".hb-venv"
+    assert api.local_hb_engine.extra_env == {"SAFETYWEBBING_LLM_AUTH": "claude_oauth"}
+    # Same argv contract as PentestGPT, so the shared engine code builds the command.
+    cmd = replace(api.local_hb_engine, agent_cmd=["hb"]).build_command(
+        target="http://127.0.0.1:3000", goal="g", run_id="r"
+    )
+    assert cmd[0] == "hb" and cmd[cmd.index("--target") + 1] == "http://127.0.0.1:3000"
+
+
+async def test_direct_scan_routes_each_agent_to_its_own_engine(tmp_path, monkeypatch):
+    """The direct branch must launch the CHOSEN agent, not always PentestGPT."""
+    import asyncio
+
+    from safetywebbing import api
+
+    monkeypatch.setenv("SAFETYWEBBING_ALLOW_DIRECT", "1")
+    monkeypatch.setattr(api, "_LIVE_RUNS", tmp_path / "runs")
+    monkeypatch.setattr(api.local_engine, "agent_cmd", ["pentestgpt-agent"])
+    monkeypatch.setattr(api.local_hb_engine, "agent_cmd", ["safetywebbing-hackingbuddy-agent"])
+    seen: list[tuple[str, dict]] = []
+
+    async def fake_run(self, **_):
+        seen.append((self.exe, dict(self.extra_env)))
+        raise ScanFailed("stop here")
+
+    monkeypatch.setattr(LocalAgentEngine, "run", fake_run)
+    for agent in ("pentestgpt", "hackingbuddy_claude"):
+        out = await api.start_scan(api.ScanRequest(
+            target="http://127.0.0.1:3000", scan_type="sqli", mode="direct", agent=agent))
+        assert out["mode"] == "direct" and out["agent"] == agent
+    await asyncio.sleep(0.3)
+    assert ("pentestgpt-agent", {}) in seen
+    assert ("safetywebbing-hackingbuddy-agent", {"SAFETYWEBBING_LLM_AUTH": "claude_oauth"}) in seen
+    api._jobs.clear()
+
+
+async def test_hackingbuddy_api_key_agent_still_cannot_go_direct(monkeypatch):
+    from fastapi import HTTPException
+
+    from safetywebbing import api
+
+    monkeypatch.setenv("SAFETYWEBBING_ALLOW_DIRECT", "1")
+    with pytest.raises(HTTPException) as exc:
+        await api.start_scan(api.ScanRequest(
+            target="http://127.0.0.1:3000", scan_type="sqli", mode="direct", agent="hackingbuddy"))
+    assert exc.value.status_code == 400
+    assert "does not support mode 'direct'" in exc.value.detail
+
+
+def test_modes_available_when_only_one_direct_agent_is_installed(monkeypatch):
+    from safetywebbing import api
+
+    monkeypatch.setenv("SAFETYWEBBING_ALLOW_DIRECT", "1")
+    # pentestgpt CLI missing, hb wrapper present → direct is still offered.
+    monkeypatch.setattr(api.local_engine, "agent_cmd", None)
+    monkeypatch.setattr(api.local_engine, "search_dirs", ())
+    monkeypatch.setattr(api.local_hb_engine, "agent_cmd", ["hb"])
+    monkeypatch.setattr("safetywebbing.engines.local.shutil.which", lambda _: None)
+    by_key = {m["key"]: m for m in api.modes()}
+    assert by_key["direct"]["available"] is True
+
+
+def test_modes_unavailable_when_no_direct_agent_is_installed(monkeypatch):
+    from safetywebbing import api
+
+    monkeypatch.setenv("SAFETYWEBBING_ALLOW_DIRECT", "1")
+    monkeypatch.setattr(api.local_engine, "agent_cmd", None)
+    monkeypatch.setattr(api.local_engine, "search_dirs", ())
+    monkeypatch.setattr(api.local_hb_engine, "agent_cmd", None)
+    monkeypatch.setattr(api.local_hb_engine, "search_dirs", ())
+    monkeypatch.setattr("safetywebbing.engines.local.shutil.which", lambda _: None)
+    by_key = {m["key"]: m for m in api.modes()}
+    assert by_key["direct"]["available"] is False
+    assert "safetywebbing-hackingbuddy-agent" in by_key["direct"]["reason"]
 
 
 # --- Per-scan model --------------------------------------------------------------

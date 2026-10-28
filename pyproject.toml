@@ -24,7 +24,7 @@ dev = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["safetywebbing", "safetywebbing.engines"]
+packages = ["safetywebbing", "safetywebbing.engines", "safetywebbing.benchmark"]
 
 [tool.ruff]
 target-version = "py312"

@@ -14,15 +14,15 @@
   "error": "max_turns: Reached maximum number of turns (7)",
   "wall_duration_s": 50.4,
   "cost_usd": 0.1421083,
-  "labeled_by": "heuristic",
+  "labeled_by": "llm-cli:claude-sonnet-4-6",
   "oracle_newly_solved": [
     "errorHandlingChallenge"
   ],
   "leak_flags": [],
   "provenance": {
-    "repo_commit": "83be606",
+    "repo_commit": "05cf783",
     "repo_dirty": false,
-    "protocol_sha256": "a8d73f9240152f9d5f2cb0b3ebcd888d7a23c43db2c88a36e178640aad7a1353",
+    "protocol_sha256": "3c73a71b2ca74d7affc77e4e2d4402de986aef505d17e593a10d59069c65920d",
     "manifest_sha256": "f1f940cc45acc3dd2758254d8e341f757b999bf7fbb155a573e56403c5fe9c6f",
     "target_reference": "juice-shop 20.3.0 (release juice-shop-20.3.0_node22_linux_x64.tgz), clean start"
   },
@@ -38,6 +38,6 @@
     "wall_duration_s": 46.632805824279785,
     "error": "max_turns: Reached maximum number of turns (7)",
     "findings": [],
-    "labeled_by": "heuristic"
+    "labeled_by": "llm-cli:claude-sonnet-4-6"
   }
 }

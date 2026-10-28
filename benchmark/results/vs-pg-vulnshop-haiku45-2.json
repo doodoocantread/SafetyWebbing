@@ -1,0 +1,71 @@
+{
+  "run_id": "vs-pg-vulnshop-haiku45-2",
+  "suite": "smoke",
+  "target": "vulnshop",
+  "config": "default",
+  "scan_type": "general",
+  "agent": "pentestgpt",
+  "mode": "direct",
+  "model": "claude-haiku-4-5",
+  "trial": 2,
+  "started_at": "2026-10-28T08:06:00+00:00",
+  "status": "failed",
+  "failure_kind": "agent_error",
+  "error": "max_turns: Reached maximum number of turns (7)",
+  "wall_duration_s": 77.1,
+  "cost_usd": 0.1882604,
+  "labeled_by": "llm-cli:claude-sonnet-4-6",
+  "oracle_newly_solved": [],
+  "leak_flags": [],
+  "provenance": {
+    "repo_commit": "05cf783",
+    "repo_dirty": false,
+    "protocol_sha256": "3c73a71b2ca74d7affc77e4e2d4402de986aef505d17e593a10d59069c65920d",
+    "manifest_sha256": "0b1e1f548a258ea39ea73747cbff0bc171492e69c8ec3b3f60b23089dfc70f2c",
+    "target_reference": "vulnshop @ simulatorwebbing 2b04039 (14 vulns, 8 controls); app on 127.0.0.1:5050"
+  },
+  "report": {
+    "run_id": "vs-pg-vulnshop-haiku45-2",
+    "goal": "Danh gia web app duoc phep kiem thu de tim cac lo hong khai thac duoc.",
+    "targets": [
+      "http://127.0.0.1:5050"
+    ],
+    "status": "failed",
+    "engine": "direct",
+    "cost_usd": 0.1882604,
+    "wall_duration_s": 74.87043190002441,
+    "error": "max_turns: Reached maximum number of turns (7)",
+    "findings": [
+      {
+        "id": "ba46d66281344fad80624f84bf75c48f:observation",
+        "task_id": "discover-app",
+        "task_kind": "discover",
+        "target": "http://127.0.0.1:5050",
+        "request": "timeout 10 curl -s -I http://127.0.0.1:5050/ | head -20",
+        "response": "Server: Werkzeug/3.1.9 Python/3.13.17",
+        "is_error": false,
+        "evidence_sequences": [
+          10
+        ],
+        "trace_episode_id": "executor-ba46d66281344fad80624f84bf75c48f",
+        "agent_note": "VulnShop is a Flask-based e-commerce application (Python 3.13.17, Werkzeug/3.1.9) for a Coffee & Tea Shop. Discovered 7 HTTP endpoints: GET /, GET /product/{id} (6 products), GET /search, GET /v2/search, POST /login, POST /api/comments, GET /static/app.js. Authentication uses Bearer tokens obtained via /login. Application supports GET and POST methods with JSON API responses. Frontend uses vanilla JavaScript with Fetch API.",
+        "label": {
+          "vuln_class": "Information Disclosure",
+          "severity": "info",
+          "cwe": "CWE-200",
+          "owasp": "A01:2021 - Broken Access Control",
+          "explanation": "Phản hồi HTTP tiết lộ thông tin về công nghệ phía máy chủ qua header Server.",
+          "rationale": [
+            "Header 'Server: Werkzeug/3.1.9 Python/3.13.17' được trả về trực tiếp trong response của REQUEST tới http://127.0.0.1:5050/, tiết lộ tên và phiên bản framework (Werkzeug 3.1.9) cùng phiên bản runtime (Python 3.13.17).",
+            "Thông tin phiên bản cụ thể trong header Server có thể giúp kẻ tấn công xác định các lỗ hổng đã biết liên quan đến phiên bản đó.",
+            "Đây là quan sát từ một request HEAD đơn giản, không cần xác thực, nghĩa là bất kỳ ai cũng có thể thu thập thông tin này."
+          ],
+          "remediation": "Cấu hình Flask/Werkzeug để không trả về header Server có thông tin phiên bản, hoặc thay thế bằng giá trị chung chung (ví dụ 'Server: webserver'). Trong Werkzeug, có thể ghi đè header này bằng middleware hoặc cấu hình server production (gunicorn, uWSGI) thay vì chạy development server trực tiếp.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      }
+    ],
+    "labeled_by": "llm-cli:claude-sonnet-4-6"
+  }
+}

@@ -14,16 +14,16 @@
   "error": "success: success",
   "wall_duration_s": 255.3,
   "cost_usd": 1.687039,
-  "labeled_by": "heuristic",
+  "labeled_by": "llm-cli:claude-sonnet-4-6",
   "oracle_newly_solved": [
     "errorHandlingChallenge",
     "loginAdminChallenge"
   ],
   "leak_flags": [],
   "provenance": {
-    "repo_commit": "83be606",
+    "repo_commit": "05cf783",
     "repo_dirty": false,
-    "protocol_sha256": "a8d73f9240152f9d5f2cb0b3ebcd888d7a23c43db2c88a36e178640aad7a1353",
+    "protocol_sha256": "3c73a71b2ca74d7affc77e4e2d4402de986aef505d17e593a10d59069c65920d",
     "manifest_sha256": "f1f940cc45acc3dd2758254d8e341f757b999bf7fbb155a573e56403c5fe9c6f",
     "target_reference": "juice-shop 20.3.0 (release juice-shop-20.3.0_node22_linux_x64.tgz), clean start"
   },
@@ -53,46 +53,21 @@
         "trace_episode_id": "executor-410aca9c1b5b4f129f6944b0c3b35f11",
         "agent_note": "SQL injection confirmed on POST /rest/user/login. Tautology ' OR 1=1-- in email field with non-matching password \"wrongpass\" returned HTTP 200 and a valid admin JWT (email admin@juice-sh.op, role admin), bypassing authentication versus the 401 benign baseline and 500 lone-single-quote SQL-error control. This proves the email input is evaluated inside the SQL query.",
         "label": {
-          "vuln_class": "SQL Injection (authentication bypass)",
+          "vuln_class": "SQL Injection (Authentication Bypass)",
           "severity": "critical",
           "cwe": "CWE-89",
           "owasp": "A03:2021 - Injection",
-          "explanation": "Payload chứa cú pháp SQL ('OR 1=1--) được gửi vào trường đăng nhập và server trả về 200 kèm token xác thực — đăng nhập bị vượt qua mà không cần mật khẩu hợp lệ.",
+          "explanation": "Trường email trong endpoint đăng nhập không được tham số hóa, cho phép kẻ tấn công chèn payload SQL tautology để bỏ qua xác thực và lấy token JWT của tài khoản admin mà không cần mật khẩu hợp lệ.",
           "rationale": [
-            "Request chứa mẫu cú pháp SQL: `' OR 1=1`.",
-            "Response trả về HTTP 200.",
-            "Body response chứa 'authentication', 'token' — dấu hiệu đăng nhập thành công."
+            "Payload `' OR 1=1--` được gửi trong trường `email` cùng với mật khẩu sai `wrongpass` — mật khẩu này KHÔNG khớp với bất kỳ tài khoản nào, nên kết quả 200 chỉ có thể giải thích bằng việc điều kiện SQL bị thao túng.",
+            "Server trả về HTTP 200 OK thay vì 401 Unauthorized, cho thấy logic xác thực đã bị vô hiệu hóa bởi tautology `OR 1=1` và comment `--` khiến phần kiểm tra password bị bỏ qua.",
+            "Body phản hồi chứa một JWT hợp lệ; phần payload của token (base64) giải mã thành `email: admin@juice-sh.op`, `role: admin`, `id: 1` — tức là bản ghi đầu tiên trong bảng users được trả về.",
+            "Trường `umail` trong JSON phản hồi là `admin@juice-sh.op`, xác nhận rằng truy vấn SQL đã trả về tài khoản quản trị viên chứ không phải tài khoản ứng với email được nhập.",
+            "Hash mật khẩu `0192023a7bbd73250516f069df18b500` cũng bị lộ trong JWT payload, cho thấy dữ liệu nhạy cảm của admin bị tiết lộ ngoài phạm vi truy vấn dự kiến."
           ],
-          "remediation": "Dùng truy vấn tham số hoá (prepared statements / ORM), không nối chuỗi SQL trực tiếp từ input. Xác thực và chuẩn hoá input phía server.",
+          "remediation": "Sử dụng parameterized queries (prepared statements) hoặc ORM với binding tham số để tách biệt dữ liệu người dùng khỏi cú pháp SQL. Không bao giờ nối chuỗi đầu vào người dùng trực tiếp vào câu truy vấn. Ngoài ra, cần giới hạn dữ liệu trả về trong JWT — không nhúng toàn bộ bản ghi người dùng (bao gồm hash mật khẩu) vào token. Áp dụng nguyên tắc đặc quyền tối thiểu cho tài khoản database.",
           "confidence": "high",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "f38aca94870249449591f90e89f53e7b:observation",
-        "task_id": "t1",
-        "task_kind": "discover",
-        "target": "http://127.0.0.1:3000",
-        "request": "timeout -k 5 20 curl -sS --max-time 15 \"http://127.0.0.1:3000/rest/products/search?q=apple\" | head -c 400; echo; echo \"---LOGIN---\"; timeout -k 5 20 curl -sS --max-time 15 -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"x\"}' \"http://127.0.0.1:3000/rest/user/login\" | head -c 400",
-        "response": "Invalid email or password.",
-        "is_error": false,
-        "evidence_sequences": [
-          14
-        ],
-        "trace_episode_id": "executor-f38aca94870249449591f90e89f53e7b",
-        "agent_note": "Enumerated OWASP Juice Shop at http://127.0.0.1:3000. Found two reachable endpoints with user-controllable params reaching SQL queries: GET /rest/products/search with query param q (returns product data), and POST /rest/user/login with JSON email/password fields (returned Invalid email or password.). Both are candidate SQL injection input surfaces; the login email field is the strongest candidate.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -109,17 +84,21 @@
         "trace_episode_id": "executor-fcbe86cd74184eeebc7eb6064b8c44cb",
         "agent_note": "SQL injection confirmed in the /rest/user/login email field (OWASP Juice Shop). Baseline benign email returned HTTP 401 \"Invalid email or password.\"; a lone single quote triggered an HTTP 500 Express error (SQL error signal); the tautology `' OR '1'='1'-- ` produced HTTP 200 with a valid authentication JWT decoding to the admin account (admin@juice-sh.op, role admin) — an authentication bypass. The response differential across the three controls evidences the email input reaching a SQL query.",
         "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "vuln_class": "SQL Injection",
+          "severity": "medium",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Trường email tại endpoint đăng nhập không được làm sạch đúng cách, khiến ký tự đặc biệt SQL (`'`) được chuyển thẳng vào câu truy vấn, gây lỗi cú pháp SQL và phản hồi HTTP 500.",
           "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
+            "Payload trong REQUEST chứa một dấu nháy đơn (`'`) làm toàn bộ giá trị email: `{\"email\":\"'\",\"password\":\"x\"}` — đây là ký tự metacharacter của SQL.",
+            "Server phản hồi với mã HTTP 500 (thể hiện rõ qua chuỗi `<h2><em>500` trong body HTML), cho thấy server không xử lý được câu truy vấn, dấu hiệu điển hình của lỗi cú pháp SQL do ký tự injection gây ra.",
+            "Trang lỗi tiết lộ tên ứng dụng và phiên bản framework (`OWASP Juice Shop (Express ^4.22.1)`), xác nhận đây là lỗi chưa được xử lý (unhandled error) lan ra đến client.",
+            "Chỉ cần một ký tự `'` duy nhất đã đủ để phá vỡ xử lý phía server, chứng tỏ đầu vào được nối chuỗi trực tiếp vào câu SQL mà không qua parameterized query hoặc escaping.",
+            "Giới hạn ở medium: chỉ có lời khai của agent, request/response không đủ bằng chứng."
           ],
-          "remediation": "Xem lại request/response thủ công.",
+          "remediation": "Sử dụng truy vấn tham số hóa (parameterized queries / prepared statements) cho mọi câu SQL liên quan đến đầu vào người dùng. Không bao giờ nối chuỗi trực tiếp vào câu lệnh SQL. Ngoài ra, cần cấu hình xử lý lỗi toàn cục để không trả thông tin nội bộ (stack trace, tên framework, phiên bản) ra response HTTP.",
           "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -136,20 +115,54 @@
         "trace_episode_id": "executor-5b398b8fc0fe404181d5a5969a9e2826",
         "agent_note": "Login endpoint POST /rest/user/login is SQL-injectable via the email field. Tautology ' OR 1=1-- returned HTTP 200 with an admin JWT (authentication bypass); a lone single quote triggered an HTTP 500 Sequelize/SQLite SQL error; the benign baseline returned HTTP 401 'Invalid email or password.' The three-way differential confirms the email input reaches a SQL query.",
         "label": {
-          "vuln_class": "Observation (needs review)",
+          "vuln_class": "SQL Injection",
+          "severity": "medium",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "AGENT_NOTE mô tả khả năng SQL Injection tại endpoint đăng nhập, nhưng REQUEST/RESPONSE duy nhất trong EVIDENCE chỉ là thử nghiệm baseline thông thường trả về HTTP 401. Không có payload injection, thông báo lỗi CSDL, hay JWT nào xuất hiện trong dữ liệu thực tế được cung cấp.",
+          "rationale": [
+            "Request duy nhất sử dụng email hợp lệ về định dạng `baseline@test.com` và mật khẩu sai `x` — không chứa bất kỳ ký tự injection nào như dấu nháy đơn hay comment SQL.",
+            "Response trả về chuỗi `Invalid email or password.` với HTTP 401, đây là hành vi xác thực bình thường, không có dấu hiệu lỗi SQL hoặc bypass.",
+            "Không có response nào trong EVIDENCE chứa thông báo lỗi Sequelize/SQLite, JWT, hay nội dung bất thường để xác nhận SQL Injection theo quy tắc bằng chứng.",
+            "Toàn bộ tuyên bố về tautology `' OR 1=1--` trả HTTP 200 với JWT admin và dấu nháy đơn gây HTTP 500 chỉ nằm trong AGENT_NOTE — không có REQUEST/RESPONSE tương ứng trong EVIDENCE."
+          ],
+          "remediation": "Nếu cần xác nhận lỗ hổng: cung cấp bằng chứng thực tế gồm request với payload injection và response HTTP 500 chứa lỗi SQL, hoặc response HTTP 200 kèm JWT sau tautology. Nếu lỗ hổng được xác nhận, cần: sử dụng parameterized queries / prepared statements thay vì nối chuỗi SQL; kiểm tra toàn bộ tầng ORM (Sequelize) để đảm bảo không có raw query không an toàn; áp dụng input validation và giới hạn thông tin trong thông báo lỗi phía server.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "f38aca94870249449591f90e89f53e7b:observation",
+        "task_id": "t1",
+        "task_kind": "discover",
+        "target": "http://127.0.0.1:3000",
+        "request": "timeout -k 5 20 curl -sS --max-time 15 \"http://127.0.0.1:3000/rest/products/search?q=apple\" | head -c 400; echo; echo \"---LOGIN---\"; timeout -k 5 20 curl -sS --max-time 15 -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"x\"}' \"http://127.0.0.1:3000/rest/user/login\" | head -c 400",
+        "response": "Invalid email or password.",
+        "is_error": false,
+        "evidence_sequences": [
+          14
+        ],
+        "trace_episode_id": "executor-f38aca94870249449591f90e89f53e7b",
+        "agent_note": "Enumerated OWASP Juice Shop at http://127.0.0.1:3000. Found two reachable endpoints with user-controllable params reaching SQL queries: GET /rest/products/search with query param q (returns product data), and POST /rest/user/login with JSON email/password fields (returned Invalid email or password.). Both are candidate SQL injection input surfaces; the login email field is the strongest candidate.",
+        "label": {
+          "vuln_class": "Unauthenticated Endpoint Discovery",
           "severity": "info",
           "cwe": null,
           "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "explanation": "Hai endpoint được xác định là có thể truy cập và nhận đầu vào người dùng, nhưng không có bằng chứng khai thác thực tế nào được ghi nhận trong REQUEST/RESPONSE.",
           "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
+            "Endpoint GET /rest/products/search?q=apple trả về dữ liệu sản phẩm với tham số q do người dùng kiểm soát, nhưng response bị cắt ngắn ở 400 ký tự đầu tiên nên không thể xác nhận nội dung thực tế.",
+            "Endpoint POST /rest/user/login với payload {\"email\":\"test@test.com\",\"password\":\"x\"} chỉ trả về thông báo 'Invalid email or password.' — đây là phản hồi xác thực thất bại bình thường, không có dấu hiệu lỗi cơ sở dữ liệu hay thông tin rò rỉ.",
+            "Không có payload injection nào được gửi trong REQUEST (chỉ dùng email hợp lệ về định dạng và mật khẩu 'x'), do đó không có điều kiện TRUE/FALSE để so sánh, không có thông báo lỗi SQL, và không có dữ liệu ngoài phạm vi truy vấn.",
+            "AGENT_NOTE gọi đây là 'candidate SQL injection input surfaces' nhưng REQUEST/RESPONSE không xác nhận bất kỳ hành vi injection nào — đây chỉ là khám phá endpoint, không phải khai thác.",
+            "Kết quả quan sát này chỉ đủ bằng chứng để xác nhận hai endpoint tồn tại và phản hồi, chưa đủ để phân loại lỗ hổng nào."
           ],
-          "remediation": "Xem lại request/response thủ công.",
+          "remediation": "Cần thực hiện thêm kiểm thử với các payload thực tế (vd: ký tự đặc biệt SQL như ', --, OR 1=1) để xác định liệu các endpoint này có bị ảnh hưởng bởi SQL Injection hay không. Nếu xác nhận được lỗ hổng, cần áp dụng parameterized queries / prepared statements và validate/sanitize đầu vào người dùng.",
           "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       }
     ],
-    "labeled_by": "heuristic"
+    "labeled_by": "llm-cli:claude-sonnet-4-6"
   }
 }

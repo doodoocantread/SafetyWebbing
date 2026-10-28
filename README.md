@@ -123,7 +123,13 @@ Findings are de-duplicated across scans. The fingerprint is target + CWE (or cla
 
 What SafetyWebbing finds on applications whose weaknesses are known, and where it goes wrong. Each recorded run is scored against a ground-truth manifest (`benchmark/targets/`) in two independent ways: whether the target's own oracle confirmed the exploit, and whether the report carries a matching finding. Rates are shown as counts with a 95% Wilson interval. A run that did not complete is listed as **inconclusive** with its cause (provider safety filter or agent error), never counted as "clean". The page only reads the committed files in `benchmark/results/`; it cannot start a run. The method, thresholds and known limits are in [`benchmark/PROTOCOL.md`](benchmark/PROTOCOL.md). Results so far are pilot (smoke) data and are labelled as such.
 
-![Benchmark page: per-cell results and the weakness matrix across agents](docs/screenshots/07-benchmark.png)
+Two targets are wired up: **OWASP Juice Shop** (oracle: its own `/api/Challenges` solved-state) and **VulnShop** (the [SimulatorWebbing](https://github.com/doodoocantread/SimulatorWebbing) testbed, which confirms each exploit server-side by writing the vuln id to a file the runner snapshots). Both are scored with the `opus-4-8 / sonnet-4-6 / haiku-4-5` model set, after the 5.x models were found to be refused by the provider's real-time cyber safeguards and so could not be measured at all.
+
+![Benchmark page: per-cell results across both targets and the Juice Shop weakness matrix](docs/screenshots/07-benchmark.png)
+
+The VulnShop weakness matrix below shows every cell independently. Oracle-confirmed exploits are the only green ticks (PentestGPT · Sonnet exploited the login-bypass SQL injection and the reflected XSS, both verified server-side); `…` marks an inconclusive run, which the page never reads as "clean".
+
+![VulnShop weakness matrix: 13 HTTP-reachable vulnerabilities and 8 patched-twin controls, scored per agent and model](docs/screenshots/08-benchmark-vulnshop.png)
 
 ### Method & Contributions (`/about`)
 

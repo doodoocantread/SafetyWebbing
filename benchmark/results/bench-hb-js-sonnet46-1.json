@@ -23,7 +23,7 @@
   "provenance": {
     "repo_commit": "05cf783",
     "repo_dirty": false,
-    "protocol_sha256": "c392bf3d02b558fe7ca458034d5d7f86a1c1495895c8e3d70c00e8fc8d98f3db",
+    "protocol_sha256": "3c73a71b2ca74d7affc77e4e2d4402de986aef505d17e593a10d59069c65920d",
     "manifest_sha256": "f1f940cc45acc3dd2758254d8e341f757b999bf7fbb155a573e56403c5fe9c6f",
     "target_reference": "juice-shop 20.3.0 (release juice-shop-20.3.0_node22_linux_x64.tgz), clean start"
   },

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 from typing import Protocol
+from urllib.parse import unquote_plus
 
 from .models import Finding, Label, Severity
 from .owasp import owasp_for_cwe
@@ -72,6 +73,71 @@ class HeuristicLabeler:
     _SQLI_TRUE = re.compile(r"or +'?1'? *= *'?1", re.IGNORECASE)
     _SQLI_FALSE = re.compile(r"and +'?1'? *= *'?[20]", re.IGNORECASE)
 
+    # A JWT in the body (`"token":"eyJ...x.y."`): proof of a successful login even when the
+    # agent trimmed the HTTP status line off the response (`curl -i ... | head`).
+    _JWT = re.compile(r"eyJ[\w-]{8,}\.[\w-]{8,}\.")
+
+    # What the AGENT says it found (`agent_note`). This is a claim, not evidence: it only
+    # labels a finding when one SENTENCE names a weakness class AND asserts it was
+    # confirmed AND carries no negation / hypothetical wording ("does NOT exhibit",
+    # "would be expected if", "candidates") — recon notes and negative results must stay info.
+    _CLAIMS = (
+        (re.compile(r"(?<![a-z])sql\s*injection|\bsqli\b", re.IGNORECASE), "SQL Injection", "CWE-89"),
+        (re.compile(r"no-?sql\s*injection", re.IGNORECASE), "NoSQL Injection", "CWE-943"),
+        (re.compile(r"cross[- ]site scripting|\bxss\b", re.IGNORECASE),
+         "Cross-Site Scripting (XSS)", "CWE-79"),
+        (re.compile(r"\bidor\b|insecure direct object", re.IGNORECASE),
+         "Insecure Direct Object Reference (IDOR)", "CWE-639"),
+        (re.compile(r"mass assignment", re.IGNORECASE), "Mass assignment", "CWE-915"),
+        (re.compile(r"path traversal|directory traversal", re.IGNORECASE),
+         "Path traversal", "CWE-22"),
+        (re.compile(r"\bssrf\b|server-side request forgery", re.IGNORECASE),
+         "Server-Side Request Forgery (SSRF)", "CWE-918"),
+        (re.compile(r"open redirect", re.IGNORECASE), "Open redirect", "CWE-601"),
+        (re.compile(r"default (?:admin\w*|credentials?|password)", re.IGNORECASE),
+         "Default credentials", "CWE-798"),
+    )
+    _ASSERTS = re.compile(
+        r"\b(confirm(?:s|ed|ing)?|injectable|exploitable|(?:is|are) vulnerable|vulnerable to"
+        r"|consistent with)\b",
+        re.IGNORECASE,
+    )
+    _NEGATES = re.compile(
+        r"\b(not|no|never|cannot|unable|without|fails?|failed|safe|secure[ds]?|sanitiz\w*"
+        r"|parameteri[sz]\w*|candidates?|potential(?:ly)?|possible|possibly|would|if|whether"
+        r"|attempt(?:s|ed)?|look(?:s|ing)? for|try(?:ing)?)\b|n't",
+        re.IGNORECASE,
+    )
+
+    # URL paths in free text or a request: bare (`POST /login`, `"path": "/login"`) or after a
+    # host (`http://127.0.0.1:5050/login`). `and/or` and `HTML/JS` do not count as paths.
+    _BARE_PATH = re.compile(r"(?:^|[\s\"'=(`])(/[^\s\"'`?#&)]*)")
+    _URL_PATH = re.compile(r"https?://[^/\s\"'`]+(/[^\s\"'`?#&)]*)")
+
+    @classmethod
+    def _paths(cls, text: str) -> set[str]:
+        found = cls._BARE_PATH.findall(text) + cls._URL_PATH.findall(text)
+        return {p.rstrip(".,;:") .rstrip("/") or "/" for p in found}
+
+    def _note_claim(self, finding: Finding) -> tuple[str, str, str] | None:
+        """(weakness, CWE, sentence) for the first affirmative claim in the agent's note
+        that is about THIS finding's request.
+
+        Some engines (hackingBuddy) attach one running narrative to every observation of a
+        turn, so a claim about /api/search would otherwise label `GET /` and `/flag` too. The
+        claim sentence must name a path the finding's own request actually hit."""
+        request_paths = self._paths(unquote_plus(finding.request or ""))
+        for sentence in re.split(r"(?<=[.!?;])\s+|\n+", finding.agent_note or ""):
+            if not self._ASSERTS.search(sentence) or self._NEGATES.search(sentence):
+                continue
+            claimed = self._paths(sentence)
+            if not any(r == c or r.startswith(c + "/") for c in claimed for r in request_paths):
+                continue
+            for pattern, name, cwe in self._CLAIMS:
+                if pattern.search(sentence):
+                    return name, cwe, sentence.strip()
+        return None
+
     def label(self, finding: Finding) -> Label:
         lbl = self._classify(finding)
         lbl.rationale = self._signals(finding)
@@ -80,7 +146,7 @@ class HeuristicLabeler:
     def _signals(self, finding: Finding) -> list[str]:
         """The concrete facts the rules looked at, so a reader can see WHY this
         observation got its label instead of only a generic class description."""
-        req = finding.request or ""
+        req = unquote_plus(finding.request or "")  # `%3Cscript%3E` is still a script payload
         resp = finding.response or ""
         status = _http_status(resp)
         out: list[str] = []
@@ -109,6 +175,8 @@ class HeuristicLabeler:
             )
         if finding.is_error:
             out.append("Lệnh của agent kết thúc với lỗi (tool_result is_error).")
+        if claim := self._note_claim(finding):
+            out.append(f"Ghi chú của agent khẳng định (lời khai, chưa kiểm chứng): \"{claim[2][:160]}\"")
         return out
 
     def _boolean_differential(self, text: str) -> bool:
@@ -123,14 +191,17 @@ class HeuristicLabeler:
         return len(counts) >= 2 or len(sizes) >= 2
 
     def _classify(self, finding: Finding) -> Label:
-        req = finding.request or ""
+        req = unquote_plus(finding.request or "")
         resp = finding.response or ""
         status = _http_status(resp)
 
-        # SQLi: payload in request + a successful auth/token response.
-        if self._SQLI_PAYLOAD.search(req) and status == 200 and (
-            "authentication" in resp or "token" in resp
-        ):
+        # SQLi: payload in request + a successful auth/token response. With no status line
+        # (the agent trimmed it), only a real JWT in the body proves the login succeeded —
+        # a bare "token" could just as well sit in a 401 "invalid token" message.
+        logged_in = (
+            status == 200 and ("authentication" in resp or "token" in resp)
+        ) or (status is None and self._JWT.search(resp) is not None)
+        if self._SQLI_PAYLOAD.search(req) and logged_in:
             return self._mk(
                 "SQL Injection (authentication bypass)", Severity.critical, "CWE-89",
                 "Payload chứa cú pháp SQL ('OR 1=1--) được gửi vào trường đăng nhập và "
@@ -173,6 +244,20 @@ class HeuristicLabeler:
                 "— trình duyệt nạn nhân có thể thực thi mã của kẻ tấn công.",
                 "Mã hoá output theo ngữ cảnh (HTML/attr/JS), áp dụng Content-Security-Policy.",
                 confidence="medium",
+            )
+        # The agent says it confirmed a weakness, but nothing above found evidence for it
+        # in the request/response. Report the claim at reduced severity and confidence:
+        # it is the agent's word, not a verified observation.
+        if claim := self._note_claim(finding):
+            name, cwe, _ = claim
+            return self._mk(
+                f"{name} (agent-reported, unverified)", Severity.medium, cwe,
+                f"Ghi chú của agent khẳng định đã xác nhận {name}, nhưng request/response "
+                "ghi lại không đủ bằng chứng để labeler tự kiểm chứng. Đây là lời khai của "
+                "agent, không phải quan sát đã xác minh.",
+                "Kiểm chứng thủ công hoặc bằng oracle của target trước khi coi là lỗ hổng "
+                "thật; nếu đúng thì vá theo khuyến nghị chuẩn của loại lỗ hổng này.",
+                confidence="low",
             )
         # Server error / stack leak.
         if status == 500:

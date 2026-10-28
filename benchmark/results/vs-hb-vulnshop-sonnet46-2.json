@@ -1,0 +1,30 @@
+{
+  "run_id": "vs-hb-vulnshop-sonnet46-2",
+  "suite": "smoke",
+  "target": "vulnshop",
+  "config": "default",
+  "scan_type": "general",
+  "agent": "hackingbuddy_claude",
+  "mode": "direct",
+  "model": "claude-sonnet-4-6",
+  "trial": 2,
+  "started_at": "2026-10-28T08:06:00+00:00",
+  "status": "error",
+  "failure_kind": "agent_error",
+  "error": "ScanFailed: scan vs-hb-vulnshop-sonnet46-2 timed out after 600s",
+  "wall_duration_s": 600.1,
+  "cost_usd": 0.0,
+  "labeled_by": "none",
+  "oracle_newly_solved": [
+    "V01"
+  ],
+  "leak_flags": [],
+  "provenance": {
+    "repo_commit": "05cf783",
+    "repo_dirty": false,
+    "protocol_sha256": "c392bf3d02b558fe7ca458034d5d7f86a1c1495895c8e3d70c00e8fc8d98f3db",
+    "manifest_sha256": "0b1e1f548a258ea39ea73747cbff0bc171492e69c8ec3b3f60b23089dfc70f2c",
+    "target_reference": "vulnshop @ simulatorwebbing 2b04039 (14 vulns, 8 controls); app on 127.0.0.1:5050"
+  },
+  "report": null
+}

@@ -14,16 +14,16 @@
   "error": "supervisor_contract: Supervisor failed after 2 attempts: task 'T008' has unknown basis observations: ['e2bb761dd6db4313b08b0a54f8a2ff3e']",
   "wall_duration_s": 480.5,
   "cost_usd": 1.3504445999999999,
-  "labeled_by": "heuristic",
+  "labeled_by": "llm-cli:claude-sonnet-4-6",
   "oracle_newly_solved": [
     "V01",
     "V03"
   ],
   "leak_flags": [],
   "provenance": {
-    "repo_commit": "851ac93",
+    "repo_commit": "05cf783",
     "repo_dirty": false,
-    "protocol_sha256": "dbb49eca791b547884085bc61975f87ae6f68e5ead911246c33e3c01a9992b9e",
+    "protocol_sha256": "c392bf3d02b558fe7ca458034d5d7f86a1c1495895c8e3d70c00e8fc8d98f3db",
     "manifest_sha256": "0b1e1f548a258ea39ea73747cbff0bc171492e69c8ec3b3f60b23089dfc70f2c",
     "target_reference": "vulnshop @ simulatorwebbing 2b04039 (14 vulns, 8 controls); app on 127.0.0.1:5050"
   },
@@ -53,20 +53,21 @@
         "trace_episode_id": "executor-8886ffd905b7482ab681f3435a51759f",
         "agent_note": "SQL injection authentication bypass confirmed on POST /login. Baseline with test/test returns 401 with \"invalid credentials\". SQLi payload `' OR '1'='1' --` in the username field returns 200 OK with a JWT token granting admin access (sub: admin, role: admin, uid: 1).",
         "label": {
-          "vuln_class": "SQL Injection (authentication bypass)",
+          "vuln_class": "SQL Injection – Authentication Bypass",
           "severity": "critical",
           "cwe": "CWE-89",
           "owasp": "A03:2021 - Injection",
-          "explanation": "Payload chứa cú pháp SQL ('OR 1=1--) được gửi vào trường đăng nhập và server trả về 200 kèm token xác thực — đăng nhập bị vượt qua mà không cần mật khẩu hợp lệ.",
+          "explanation": "Endpoint POST /login bị tấn công SQL Injection dạng authentication bypass: payload chèn vào trường username khiến truy vấn SQL luôn trả về true, cấp token JWT với quyền admin mà không cần mật khẩu hợp lệ.",
           "rationale": [
-            "Request chứa mẫu cú pháp SQL: `' OR '`.",
-            "Không đọc được mã trạng thái HTTP trong response.",
-            "Body response chứa 'token' — dấu hiệu đăng nhập thành công.",
-            "Ghi chú của agent khẳng định (lời khai, chưa kiểm chứng): \"SQL injection authentication bypass confirmed on POST /login.\""
+            "Trường username nhận payload `' OR '1'='1' --` — đây là cú pháp SQL injection cổ điển nhằm phá vỡ điều kiện WHERE và biến điều kiện xác thực thành luôn đúng.",
+            "Mật khẩu được gửi là chuỗi tùy ý `anything`, hoàn toàn không hợp lệ với bất kỳ tài khoản nào, nhưng server vẫn phản hồi thành công.",
+            "Response trả về JWT token và object user với `username: 'admin'`, `role: 'admin'`, `uid: 1` — trong khi username được gửi lên là chuỗi SQL chứ không phải 'admin', cho thấy server đã trả về bản ghi của người dùng đầu tiên trong CSDL do câu truy vấn bị thao túng.",
+            "Giải mã JWT payload xác nhận: `{\"sub\": \"admin\", \"uid\": 1, \"role\": \"admin\"}` — token này cấp quyền admin toàn hệ thống, đây là dữ liệu nhận được trực tiếp sau khi gửi payload injection.",
+            "Cờ `--` ở cuối payload là comment SQL dùng để vô hiệu hóa phần kiểm tra password trong câu truy vấn gốc, xác nhận lỗ hổng không do lọc đầu vào mà do ghép chuỗi SQL trực tiếp."
           ],
-          "remediation": "Dùng truy vấn tham số hoá (prepared statements / ORM), không nối chuỗi SQL trực tiếp từ input. Xác thực và chuẩn hoá input phía server.",
+          "remediation": "1. Dùng Prepared Statements / Parameterized Queries (không bao giờ ghép chuỗi input vào SQL). 2. Áp dụng ORM với binding tham số. 3. Validate và sanitize đầu vào phía server — từ chối các ký tự đặc biệt SQL trong trường username. 4. Giới hạn quyền tài khoản DB (nguyên tắc least privilege). 5. Triển khai WAF với ruleset phát hiện SQL injection. 6. Xem xét thêm rate-limiting và logging cho endpoint đăng nhập.",
           "confidence": "high",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -87,98 +88,16 @@
           "severity": "high",
           "cwe": "CWE-79",
           "owasp": "A03:2021 - Injection",
-          "explanation": "Payload script trong request được phản chiếu nguyên văn trong response — trình duyệt nạn nhân có thể thực thi mã của kẻ tấn công.",
+          "explanation": "Tham số `q` trên endpoint `/search` phản chiếu trực tiếp giá trị người dùng nhập vào HTML mà không qua mã hóa hay lọc, cho phép kẻ tấn công chèn và thực thi mã JavaScript tùy ý trong trình duyệt nạn nhân.",
           "rationale": [
-            "Request chứa mẫu payload script: `<script`.",
-            "Không đọc được mã trạng thái HTTP trong response.",
-            "Response phản chiếu lại '<script' nguyên văn.",
-            "Ghi chú của agent khẳng định (lời khai, chưa kiểm chứng): \"Reflected XSS confirmed on /search?q=.\""
+            "Request gửi payload `%3Cscript%3Ealert%281%29%3C%2Fscript%3E` (tức là `<script>alert(1)</script>`) qua tham số `q` bằng phương thức GET.",
+            "Response trả về chuỗi `<script>alert(1)</script>` nguyên văn bên trong thẻ `<p>Results for: ...</p>`, cho thấy server không thực hiện HTML encoding trước khi chèn vào DOM.",
+            "Thẻ `<script>` được phản chiếu chưa thoát ký tự (`<` không thành `&lt;`, `>` không thành `&gt;`), khiến trình duyệt sẽ parse và thực thi đoạn script đó.",
+            "Mã HTTP 200 kết hợp với nội dung script được nhúng trực tiếp trong body xác nhận payload được thực thi trong ngữ cảnh trang."
           ],
-          "remediation": "Mã hoá output theo ngữ cảnh (HTML/attr/JS), áp dụng Content-Security-Policy.",
-          "confidence": "medium",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "ea642014daaf4d339c289c549e29695a:observation",
-        "task_id": "T001",
-        "task_kind": "discover",
-        "target": "http://127.0.0.1:5050",
-        "request": "cat /tmp/root.html | head -100",
-        "response": "<nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Coffee &amp; Tea Shop</h1>\n  \n<form action=\"/search\" method=\"get\">\n  <input name=\"q\" placeholder=\"Search products\">\n  <button>Search</button>\n</form>\n<h2>Products</h2>\n<ul>\n  \n  <li><a href=\"/product/1\">Espresso Beans 1kg</a> — $18.50</li>\n  \n  <li><a href=\"/product/2\">Ceramic Mug</a> — $7.00</li>\n  \n  <li><a href=\"/product/3\">Pour-over Kit</a> — $32.00</li>\n  \n  <li><a href=\"/product/4\">Tea Sampler</a> — $14.25</li>\n  \n  <li><a href=\"/product/5\">Milk Frother</a> — $21.90</li>\n  \n  <li><a href=\"/product/6\">Grinder</a> — $45.00</li>\n  \n</ul>\n<h2>Sign in</h2>\n<form id=\"login-form\">",
-        "is_error": false,
-        "evidence_sequences": [
-          12
-        ],
-        "trace_episode_id": "executor-ea642014daaf4d339c289c549e29695a",
-        "agent_note": "VulnShop is an intentionally vulnerable Coffee & Tea Shop app (Python/HTML, JSON API). Tech stack: HTML+JS frontend, REST JSON API backend, JWT auth. Discovered endpoints: GET / (home+login form), POST /login (JSON auth → JWT), GET /search?q= (HTML search), GET /v2/search?q= (alternate v2 search), GET /product/{id} (product detail with comments), POST /api/{product_id}/comments (requires Bearer token), GET /api/products (JSON list), GET /api/search. Key attack surfaces: (1) SQL injection candidates — `q` param in /search and /v2/search, path param in /product/{id}; (2) Stored XSS — unauthenticated comment textarea on product pages; (3) Authentication bypass — POST /login JSON endpoint; (4) IDOR — numeric /product/{id}.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "f74cc45309a243e180db6db061a67428:observation",
-        "task_id": "T002",
-        "task_kind": "test",
-        "target": "http://127.0.0.1:5050",
-        "request": "timeout 10 curl -s \"http://127.0.0.1:5050/search?q=Espresso\" 2>&1 | grep -E '<li>|Results for'",
-        "response": "<p>Results for: Espresso</p>\n  <li><a href=\"/product/1\">Espresso Beans 1kg</a> — $18.50</li>",
-        "is_error": false,
-        "evidence_sequences": [
-          30
-        ],
-        "trace_episode_id": "executor-f74cc45309a243e180db6db061a67428",
-        "agent_note": "All three probes were sent to /search?q= and compared. Baseline (q=Espresso) returned 1 product. Syntax-breaking probe (q=Espresso') returned 0 results with no SQL error. Boolean control (q=Espresso' OR '1'='1) also returned 0 results — the OR expansion did NOT increase row counts to the expected 6 products, indicating the parameter does not exhibit SQL injection behavior via this technique. No SQL errors or structural differences were observed.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "f550a3d80f7d4ec38a2383f054cc1609:observation",
-        "task_id": "T003",
-        "task_kind": "test",
-        "target": "http://127.0.0.1:5050",
-        "request": "timeout 10 curl -sS \"http://127.0.0.1:5050/v2/search?q=Espresso'+OR+'1'%3D'1\" 2>&1 | head -80",
-        "response": "<p>Results for: Espresso&#39; OR &#39;1&#39;=&#39;1</p>\n<ul>\n  \n  <li>No products found.</li>\n  \n</ul>",
-        "is_error": false,
-        "evidence_sequences": [
-          11
-        ],
-        "trace_episode_id": "executor-f550a3d80f7d4ec38a2383f054cc1609",
-        "agent_note": "All three probes sent and compared. Probe 1 (q=Espresso) returned 1 result. Probe 2 (q=Espresso') returned 0 results with no SQL error. Probe 3 (q=Espresso' OR '1'='1) returned 0 results — the boolean OR condition did NOT expand results to all 6 products, which would be expected if the endpoint were injectable. The /v2/search endpoint appears to sanitize or parameterize the input, making it NOT vulnerable to classic string-based SQL injection via this vector.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Request chứa mẫu cú pháp SQL: `' OR '`.",
-            "Không đọc được mã trạng thái HTTP trong response."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
+          "remediation": "Thực hiện HTML encoding tất cả dữ liệu đầu vào từ người dùng trước khi chèn vào HTML output (ví dụ: dùng `html.escape()` trong Python, `htmlspecialchars()` trong PHP, hoặc thư viện template tự động escape). Áp dụng Content Security Policy (CSP) để giảm thiểu tác động khi bỏ sót. Sử dụng HTTP header `X-XSS-Protection` và cấu hình `Content-Type` chính xác. Xem xét dùng framework template có tính năng auto-escaping (Jinja2, Thymeleaf, v.v.).",
+          "confidence": "high",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -195,17 +114,20 @@
         "trace_episode_id": "executor-56aaa315c2504c2ebd33a83de16b6ce2",
         "agent_note": "All three probes completed and compared. Baseline /product/1 returns full HTML product page (Espresso Beans 1kg). Syntax-break probe /product/1' returns {\"error\":\"Not Found\"} (structural difference: JSON vs HTML). Boolean-false probe /product/1 AND 1=2 also returns {\"error\":\"Not Found\"} — baseline shows product exists but the boolean-false condition causes no product to be returned, consistent with Boolean-based SQL injection in the path parameter. Structural differences between all three probes confirm the /product/{id} path parameter is injectable.",
         "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "vuln_class": "Boolean-based Blind SQL Injection",
+          "severity": "medium",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "AGENT_NOTE mô tả hành vi phân kỳ giữa ba probe (baseline, ký tự ngoặc đơn, điều kiện boolean-false) gợi ý SQL Injection mù dựa trên boolean tại tham số đường dẫn `/product/{id}`. Tuy nhiên, EVIDENCE chỉ chứa MỘT cặp REQUEST/RESPONSE duy nhất là baseline, không đủ để xác nhận độc lập.",
           "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
+            "REQUEST duy nhất trong EVIDENCE là `GET /product/1` — đây là probe baseline, RESPONSE trả về trang HTML hợp lệ với dữ liệu sản phẩm ('Espresso Beans 1kg', '$18.50'), không chứa thông báo lỗi cơ sở dữ liệu hay payload bị phản chiếu.",
+            "Không có REQUEST/RESPONSE nào trong EVIDENCE cho probe `/product/1'` (syntax-break) hay `/product/1 AND 1=2` (boolean-false) — hai probe này chỉ xuất hiện trong AGENT_NOTE dưới dạng tuyên bố chưa kiểm chứng.",
+            "Một phản hồi 200 trả HTML đầy đủ trong baseline KHÔNG tự nó là bằng chứng injection; cần có sự so sánh có kiểm chứng giữa các điều kiện TRUE/FALSE trong cùng EVIDENCE, nhưng điều đó không có ở đây.",
+            "Kết luận về SQL Injection chỉ có thể dựa trên AGENT_NOTE (mô tả sự khác biệt cấu trúc HTML↔JSON và hành vi boolean), do đó theo quy tắc, severity bị giới hạn ở mức 'medium' và confidence 'low'."
           ],
-          "remediation": "Xem lại request/response thủ công.",
+          "remediation": "Nếu kết quả của các probe bổ sung được xác nhận: (1) Sử dụng câu truy vấn tham số hóa (parameterized queries / prepared statements) thay vì nối chuỗi trực tiếp vào SQL; (2) Validate và ép kiểu chặt chẽ tham số `id` thành kiểu số nguyên trước khi sử dụng; (3) Áp dụng nguyên tắc đặc quyền tối thiểu cho tài khoản cơ sở dữ liệu; (4) Bật WAF với quy tắc phát hiện SQL Injection; (5) Chạy lại kiểm thử và cung cấp đầy đủ ba cặp REQUEST/RESPONSE để xác nhận.",
           "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -222,20 +144,115 @@
         "trace_episode_id": "executor-4c5e8409bd124c75a721837138dc7d63",
         "agent_note": "GET /api/orders with the admin JWT token (obtained via SQLi auth bypass in T005) returns HTTP 200 with order data, while the same request without the token returns HTTP 401 {\"error\":\"Unauthorized\"}. This confirms the stolen token grants full authenticated access to the protected endpoint, demonstrating successful privilege escalation.",
         "label": {
-          "vuln_class": "Observation (needs review)",
+          "vuln_class": "Broken Authentication",
+          "severity": "medium",
+          "cwe": "CWE-287",
+          "owasp": "A07:2021 - Identification and Authentication Failures",
+          "explanation": "Một JWT mang tuyên bố đặc quyền quản trị (role: admin, uid: 1) được gửi đến endpoint được bảo vệ và máy chủ trả về HTTP 200, cho thấy token được chấp nhận. Tuy nhiên, bản thân EVIDENCE chỉ cho thấy một yêu cầu thành công duy nhất; tính chất 'bị đánh cắp/giả mạo' của token chỉ được khẳng định trong AGENT_NOTE mà không có bằng chứng xác nhận trong REQUEST/RESPONSE.",
+          "rationale": [
+            "Token JWT trong header Authorization chứa payload giải mã được với các tuyên bố `role: admin`, `sub: admin`, `uid: 1` — đây là dữ liệu quan sát được trực tiếp trong REQUEST.",
+            "Máy chủ trả về HTTP 200 khi nhận token này, tức là xác thực JWT thành công và endpoint được bảo vệ đã được truy cập.",
+            "Phản hồi body là `[]` (mảng rỗng), không tiết lộ dữ liệu nhạy cảm cụ thể, chỉ xác nhận endpoint hoạt động và token được chấp nhận.",
+            "AGENT_NOTE tuyên bố token này có nguồn gốc từ bỏ qua xác thực SQL Injection ở bước trước, nhưng không có bằng chứng SQLi nào xuất hiện trong REQUEST/RESPONSE của lần quan sát này để xác nhận điều đó.",
+            "Không có phản hồi 401 nào được trình bày trong EVIDENCE để so sánh, do đó không thể xác nhận độc lập rằng endpoint từ chối yêu cầu không có token."
+          ],
+          "remediation": "Xác minh lại chữ ký JWT bằng khóa bí mật mạnh và duy nhất; không chấp nhận token với tuyên bố đặc quyền tùy ý do phía client gửi lên. Triển khai cơ chế thu hồi token (blacklist hoặc jti tracking). Nếu token trước đó bị lộ qua SQL Injection, hãy vô hiệu hóa tất cả token hiện hành và thay đổi khóa ký. Đảm bảo các endpoint API thực thi kiểm tra phân quyền phía server dựa trên danh tính đã xác minh, không chỉ dựa vào tuyên bố trong token.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "ea642014daaf4d339c289c549e29695a:observation",
+        "task_id": "T001",
+        "task_kind": "discover",
+        "target": "http://127.0.0.1:5050",
+        "request": "cat /tmp/root.html | head -100",
+        "response": "<nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Coffee &amp; Tea Shop</h1>\n  \n<form action=\"/search\" method=\"get\">\n  <input name=\"q\" placeholder=\"Search products\">\n  <button>Search</button>\n</form>\n<h2>Products</h2>\n<ul>\n  \n  <li><a href=\"/product/1\">Espresso Beans 1kg</a> — $18.50</li>\n  \n  <li><a href=\"/product/2\">Ceramic Mug</a> — $7.00</li>\n  \n  <li><a href=\"/product/3\">Pour-over Kit</a> — $32.00</li>\n  \n  <li><a href=\"/product/4\">Tea Sampler</a> — $14.25</li>\n  \n  <li><a href=\"/product/5\">Milk Frother</a> — $21.90</li>\n  \n  <li><a href=\"/product/6\">Grinder</a> — $45.00</li>\n  \n</ul>\n<h2>Sign in</h2>\n<form id=\"login-form\">",
+        "is_error": false,
+        "evidence_sequences": [
+          12
+        ],
+        "trace_episode_id": "executor-ea642014daaf4d339c289c549e29695a",
+        "agent_note": "VulnShop is an intentionally vulnerable Coffee & Tea Shop app (Python/HTML, JSON API). Tech stack: HTML+JS frontend, REST JSON API backend, JWT auth. Discovered endpoints: GET / (home+login form), POST /login (JSON auth → JWT), GET /search?q= (HTML search), GET /v2/search?q= (alternate v2 search), GET /product/{id} (product detail with comments), POST /api/{product_id}/comments (requires Bearer token), GET /api/products (JSON list), GET /api/search. Key attack surfaces: (1) SQL injection candidates — `q` param in /search and /v2/search, path param in /product/{id}; (2) Stored XSS — unauthenticated comment textarea on product pages; (3) Authentication bypass — POST /login JSON endpoint; (4) IDOR — numeric /product/{id}.",
+        "label": {
+          "vuln_class": "Predictable Resource Identifier (IDOR Surface)",
+          "severity": "info",
+          "cwe": "CWE-639",
+          "owasp": "A01:2021 - Broken Access Control",
+          "explanation": "Trang chủ lộ ra các URL sản phẩm với ID số nguyên tuần tự (/product/1 đến /product/6), tạo ra bề mặt tấn công IDOR tiềm năng. Đây là bước khám phá, chưa có khai thác thực sự được xác nhận.",
+          "rationale": [
+            "Response HTML liệt kê rõ ràng 6 đường dẫn /product/1 đến /product/6 — ID số nguyên tuần tự, có thể dễ dàng enumerate bằng cách thay đổi giá trị.",
+            "Endpoint /search và /v2/search đều nhận tham số `q` qua GET, được hiển thị trực tiếp trong form HTML — đây là bề mặt kiểm thử injection nhưng chưa được thử nghiệm trong observation này.",
+            "Form đăng nhập (id='login-form') được nhúng trực tiếp trong trang công khai, cho thấy cơ chế xác thực có thể test được, nhưng request/response này không cho thấy bất kỳ tương tác nào với endpoint /login.",
+            "Đây là kết quả discovery đơn thuần — không có payload, không có error message, không có dữ liệu ngoài phạm vi truy vấn, không có so sánh điều kiện TRUE/FALSE — không đủ bằng chứng để xác nhận lỗ hổng thực sự."
+          ],
+          "remediation": "Sử dụng định danh không đoán được (UUID v4) thay cho ID số nguyên tuần tự cho các tài nguyên. Thực thi kiểm tra phân quyền tại server trước khi trả về chi tiết tài nguyên (/product/{id}), đảm bảo người dùng chỉ truy cập được tài nguyên họ được phép xem.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "f74cc45309a243e180db6db061a67428:observation",
+        "task_id": "T002",
+        "task_kind": "test",
+        "target": "http://127.0.0.1:5050",
+        "request": "timeout 10 curl -s \"http://127.0.0.1:5050/search?q=Espresso\" 2>&1 | grep -E '<li>|Results for'",
+        "response": "<p>Results for: Espresso</p>\n  <li><a href=\"/product/1\">Espresso Beans 1kg</a> — $18.50</li>",
+        "is_error": false,
+        "evidence_sequences": [
+          30
+        ],
+        "trace_episode_id": "executor-f74cc45309a243e180db6db061a67428",
+        "agent_note": "All three probes were sent to /search?q= and compared. Baseline (q=Espresso) returned 1 product. Syntax-breaking probe (q=Espresso') returned 0 results with no SQL error. Boolean control (q=Espresso' OR '1'='1) also returned 0 results — the OR expansion did NOT increase row counts to the expected 6 products, indicating the parameter does not exhibit SQL injection behavior via this technique. No SQL errors or structural differences were observed.",
+        "label": {
+          "vuln_class": "No Vulnerability Detected",
           "severity": "info",
           "cwe": null,
           "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "explanation": "Không phát hiện lỗ hổng SQL Injection qua kỹ thuật Boolean-based trên tham số `q`.",
           "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
+            "Request baseline `q=Espresso` trả về đúng 1 sản phẩm khớp tên ('Espresso Beans 1kg'), phản hồi HTTP 200 bình thường.",
+            "Response chỉ phản chiếu chuỗi tìm kiếm nguyên văn trong thẻ `<p>Results for: Espresso</p>` — không có dấu hiệu lỗi cú pháp SQL hay stack trace.",
+            "AGENT_NOTE ghi nhận payload phá cú pháp (`q=Espresso'`) và payload OR (`q=Espresso' OR '1'='1`) đều trả 0 kết quả, KHÔNG mở rộng tập dữ liệu — không có sự khác biệt kiểm chứng được giữa điều kiện TRUE và FALSE theo hướng có lợi cho kẻ tấn công.",
+            "Không có thông báo lỗi cơ sở dữ liệu, không có dữ liệu nằm ngoài phạm vi truy vấn, không có payload bị thực thi trong body response dựa trên REQUEST/RESPONSE được cung cấp.",
+            "Với chỉ một quan sát duy nhất trong EVIDENCE, không đủ cơ sở để kết luận bất kỳ hành vi bất thường nào so với baseline."
           ],
-          "remediation": "Xem lại request/response thủ công.",
+          "remediation": "Không cần hành động khẩn cấp dựa trên bằng chứng hiện tại. Tuy nhiên, nên tiếp tục kiểm thử với các kỹ thuật khác (time-based blind, error-based, out-of-band) và đảm bảo tham số `q` luôn sử dụng prepared statement / parameterized query ở tầng ứng dụng.",
           "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "f550a3d80f7d4ec38a2383f054cc1609:observation",
+        "task_id": "T003",
+        "task_kind": "test",
+        "target": "http://127.0.0.1:5050",
+        "request": "timeout 10 curl -sS \"http://127.0.0.1:5050/v2/search?q=Espresso'+OR+'1'%3D'1\" 2>&1 | head -80",
+        "response": "<p>Results for: Espresso&#39; OR &#39;1&#39;=&#39;1</p>\n<ul>\n  \n  <li>No products found.</li>\n  \n</ul>",
+        "is_error": false,
+        "evidence_sequences": [
+          11
+        ],
+        "trace_episode_id": "executor-f550a3d80f7d4ec38a2383f054cc1609",
+        "agent_note": "All three probes sent and compared. Probe 1 (q=Espresso) returned 1 result. Probe 2 (q=Espresso') returned 0 results with no SQL error. Probe 3 (q=Espresso' OR '1'='1) returned 0 results — the boolean OR condition did NOT expand results to all 6 products, which would be expected if the endpoint were injectable. The /v2/search endpoint appears to sanitize or parameterize the input, making it NOT vulnerable to classic string-based SQL injection via this vector.",
+        "label": {
+          "vuln_class": "SQL Injection (Not Confirmed)",
+          "severity": "info",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Không có bằng chứng SQL Injection tại endpoint /v2/search. Payload boolean OR không gây ra hành vi bất thường.",
+          "rationale": [
+            "Payload 'Espresso' OR '1'='1' được phản chiếu nguyên văn trong phản hồi HTML dưới dạng 'Espresso&#39; OR &#39;1&#39;=&#39;1', cho thấy ký tự nháy đơn đã bị HTML-encode.",
+            "Phản hồi HTTP trả về nội dung 'No products found.' thay vì mở rộng kết quả — điều kiện boolean OR không có tác dụng khai thác.",
+            "Không có thông báo lỗi cơ sở dữ liệu nào xuất hiện trong response body, không có stack trace hay syntax error.",
+            "Chỉ có DUY NHẤT một quan sát trong EVIDENCE (payload OR), không có baseline để so sánh hành vi TRUE/FALSE khác nhau một cách độc lập — không đủ bằng chứng để xác nhận injection."
+          ],
+          "remediation": "Tiếp tục duy trì cơ chế hiện tại (parameterized queries hoặc input sanitization). Để kiểm tra toàn diện hơn, nên thực hiện thêm các probe với error-based, time-based blind và UNION-based payloads. Đảm bảo tất cả các tham số đầu vào đều được xử lý qua prepared statements.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       }
     ],
-    "labeled_by": "heuristic"
+    "labeled_by": "llm-cli:claude-sonnet-4-6"
   }
 }

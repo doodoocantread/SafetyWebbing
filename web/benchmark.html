@@ -140,7 +140,7 @@ function Matrix({manifest, trials}) {
       <div className="tbl-wrap"><table className="tbl">
         <thead><tr>
           <th>{tr("Lỗ hổng", "Weakness")}</th><th>CWE</th><th>Scan</th>
-          {runs.map(t => <th key={t.run_id} title={t.run_id} style={{textAlign: "center"}}>{agentShort(t.agent)}<br/>{modelShort(t.model)}<br/><span className="mono">{t.scan_type}</span></th>)}
+          {runs.map(t => <th key={t.run_id} title={t.run_id} style={{textAlign: "center"}}>{agentShort(t.agent)}<br/>{modelShort(t.model)}<br/><span className="mono">{t.scan_type} · #{t.trial}</span></th>)}
         </tr></thead>
         <tbody>{manifest.vulns.map(v => {
           const muted = v.scoring !== "scored";

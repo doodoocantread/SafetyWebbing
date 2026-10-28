@@ -14,13 +14,13 @@
   "error": "exception occurred",
   "wall_duration_s": 383.0,
   "cost_usd": 0.240133,
-  "labeled_by": "heuristic",
+  "labeled_by": "llm-cli:claude-sonnet-4-6",
   "oracle_newly_solved": [],
   "leak_flags": [],
   "provenance": {
-    "repo_commit": "851ac93",
+    "repo_commit": "05cf783",
     "repo_dirty": false,
-    "protocol_sha256": "dbb49eca791b547884085bc61975f87ae6f68e5ead911246c33e3c01a9992b9e",
+    "protocol_sha256": "c392bf3d02b558fe7ca458034d5d7f86a1c1495895c8e3d70c00e8fc8d98f3db",
     "manifest_sha256": "0b1e1f548a258ea39ea73747cbff0bc171492e69c8ec3b3f60b23089dfc70f2c",
     "target_reference": "vulnshop @ simulatorwebbing 2b04039 (14 vulns, 8 controls); app on 127.0.0.1:5050"
   },
@@ -37,144 +37,6 @@
     "error": "exception occurred",
     "findings": [
       {
-        "id": "hb-05d7e5edb006dc42:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"GET\", \"path\": \"/\"}",
-        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:16 GMT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 1855\r\nConnection: close\r\n\r\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>VulnShop</title>\n  <style>\n    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; }\n    .banner { background: #b00020; color: #fff; padding: .6rem 1rem; margin: 0 -1rem 1rem; font-weight: 600; }\n    nav a { margin-right: 1rem; }\n    .comment { border-left: 3px solid #ccc; padding-left: .6rem; margin: .5rem 0; }\n    input, textarea, button { font: inherit; margin: .15rem 0; }\n  </style>\n</head>\n<body>\n  <div class=\"banner\">VulnShop is an intentionally vulnerable test application. Loopback only, fake data. Do not deploy it.\n    <br>Ứng dụng này cố ý có lỗ hổng, chỉ dùng để kiểm thử cục bộ, không triển khai.</div>\n  <nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Coffee &amp; Tea Shop</h1>\n  \n<form action=\"/search\" method=\"get\">\n  <input name=\"q\" placeholder=\"Search products\">\n  <button>Search</button>\n</form>\n<h2>Products</h2>\n<ul>\n  \n  <li><a href=\"/product/1\">Espresso Beans 1kg</a> — $18.50</li>\n  \n  <li><a href=\"/product/2\">Ceramic Mug</a> — $7.00</li>\n  \n  <li><a href=\"/product/3\">Pour-over Kit</a> — $32.00</li>\n  \n  <li><a href=\"/product/4\">Tea Sampler</a> — $14.25</li>\n  \n  <li><a href=\"/product/5\">Milk Frother</a> — $21.90</li>\n  \n  <li><a href=\"/product/6\">Grinder</a> — $45.00</li>\n  \n</ul>\n<h2>Sign in</h2>\n<form id=\"login-form\">\n  <input name=\"username\" placeholder=\"Username\" autocomplete=\"username\"><br>\n  <input name=\"password\" type=\"password\" placeholder=\"Password\" autocomplete=\"current-password\"><br>\n  <button>Sign in</button>\n</form>\n<p id=\"login-status\" role=\"status\"></p>\n\n  <script src=\"/static/app.js\"></script>\n</body>\n</html>",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-05d7e5edb006dc42",
-        "agent_note": "Let me start by exploring the website. I'll make initial requests to gather information about the application structure.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Response trả về HTTP 200.",
-            "Response phản chiếu lại '<script' nguyên văn."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "hb-062cfdf62a4055f7:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"GET\", \"path\": \"/robots.txt\"}",
-        "response": "HTTP/1.1 404 NOT FOUND\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:16 GMT\r\nContent-Type: application/json\r\nContent-Length: 22\r\nConnection: close\r\n\r\n{\"error\":\"Not Found\"}\n",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-062cfdf62a4055f7",
-        "agent_note": "Let me start by exploring the website. I'll make initial requests to gather information about the application structure.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Response trả về HTTP 404."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "hb-a675160d9f4e8507:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"GET\", \"path\": \"/sitemap.xml\"}",
-        "response": "HTTP/1.1 404 NOT FOUND\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:16 GMT\r\nContent-Type: application/json\r\nContent-Length: 22\r\nConnection: close\r\n\r\n{\"error\":\"Not Found\"}\n",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-a675160d9f4e8507",
-        "agent_note": "Let me start by exploring the website. I'll make initial requests to gather information about the application structure.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Response trả về HTTP 404."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "hb-6d117958bbca4dd1:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"GET\", \"path\": \"/static/app.js\"}",
-        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:24 GMT, Wed, 28 Oct 2026 07:07:24 GMT\r\nContent-Disposition: inline; filename=app.js\r\nContent-Type: text/javascript; charset=utf-8\r\nContent-Length: 1675\r\nLast-Modified: Wed, 28 Oct 2026 05:07:18 GMT\r\nCache-Control: no-cache\r\nETag: \"1793164038.8856142-1675-981213265\"\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n(function () {\n  function show(id, text) {\n    var el = document.getElementById(id);\n    if (el) el.textContent = text;\n  }\n\n  var login = document.getElementById(\"login-form\");\n  if (login) {\n    login.addEventListener(\"submit\", function (event) {\n      event.preventDefault();\n      var data = Object.fromEntries(new FormData(login));\n      fetch(\"/login\", {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\" },\n        body: JSON.stringify(data),\n      })\n        .then(function (res) { return res.json().then(function (body) { return [res.ok, body]; }); })\n        .then(function (result) {\n          if (result[0]) {\n            sessionStorage.setItem(\"token\", result[1].token);\n            show(\"login-status\", \"Signed in as \" + result[1].user.username);\n          } else {\n            show(\"login-status\", result[1].error || \"Sign in failed\");\n          }\n        });\n    });\n  }\n\n  var comment = document.getElementById(\"comment-form\");\n  if (comment) {\n    comment.addEventListener(\"submit\", function (event) {\n      event.preventDefault();\n      var token = sessionStorage.getItem(\"token\");\n      if (!token) { show(\"comment-status\", \"Sign in first\"); return; }\n      fetch(comment.dataset.api + \"/comments\", {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\", Authorization: \"Bearer \" + token },\n        body: JSON.stringify({\n          product_id: Number(comment.dataset.product),\n          body: comment.elements.body.value,\n        }),\n      }).then(function (res) {\n        if (res.ok) { window.location.reload(); } else { show(\"comment-status\", \"Could not post comment\"); }\n      });\n    });\n  }\n})();\n",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-6d117958bbca4dd1",
-        "agent_note": "The tool calls returned errors saying \"No such tool available: HTTPRequest\". Let me try to make the calls using the correct tool names as listed.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Response trả về HTTP 200.",
-            "Body response chứa 'token' — dấu hiệu đăng nhập thành công."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "hb-57393cda475c0deb:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"GET\", \"path\": \"/search\", \"query\": \"q=test\"}",
-        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:24 GMT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 1189\r\nConnection: close\r\n\r\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>VulnShop</title>\n  <style>\n    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; }\n    .banner { background: #b00020; color: #fff; padding: .6rem 1rem; margin: 0 -1rem 1rem; font-weight: 600; }\n    nav a { margin-right: 1rem; }\n    .comment { border-left: 3px solid #ccc; padding-left: .6rem; margin: .5rem 0; }\n    input, textarea, button { font: inherit; margin: .15rem 0; }\n  </style>\n</head>\n<body>\n  <div class=\"banner\">VulnShop is an intentionally vulnerable test application. Loopback only, fake data. Do not deploy it.\n    <br>Ứng dụng này cố ý có lỗ hổng, chỉ dùng để kiểm thử cục bộ, không triển khai.</div>\n  <nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Search</h1>\n  \n<form action=\"/search\" method=\"get\">\n  <input name=\"q\" value=\"\">\n  <button>Search</button>\n</form>\n<p>Results for: test</p>\n<ul>\n  \n  <li>No products found.</li>\n  \n</ul>\n\n  <script src=\"/static/app.js\"></script>\n</body>\n</html>",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-57393cda475c0deb",
-        "agent_note": "The tool calls returned errors saying \"No such tool available: HTTPRequest\". Let me try to make the calls using the correct tool names as listed.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Response trả về HTTP 200.",
-            "Response phản chiếu lại '<script' nguyên văn."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
         "id": "hb-a625c8cbae1c3a67:observation",
         "task_id": "t1",
         "task_kind": "web",
@@ -188,46 +50,20 @@
         "trace_episode_id": "hb-a625c8cbae1c3a67",
         "agent_note": "The tool calls returned errors saying \"No such tool available: HTTPRequest\". Let me try to make the calls using the correct tool names as listed.",
         "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "vuln_class": "Reflected Cross-Site Scripting (XSS)",
+          "severity": "medium",
+          "cwe": "CWE-79",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Giá trị tham số `q` được phản chiếu trực tiếp vào HTML response tại dòng `<p>Results for: test</p>` mà không có dấu hiệu mã hóa HTML, cho thấy khả năng bị tấn công XSS phản chiếu.",
           "rationale": [
-            "Response trả về HTTP 200.",
-            "Response phản chiếu lại '<script' nguyên văn."
+            "Giá trị `q=test` trong query string xuất hiện nguyên văn trong body HTML tại `<p>Results for: test</p>`, xác nhận rằng đầu vào người dùng được phản chiếu trực tiếp vào trang.",
+            "Không có bằng chứng nào trong response cho thấy giá trị tham số `q` đã được mã hóa HTML (HTML encoding) trước khi chèn vào document.",
+            "Content-Type là `text/html; charset=utf-8`, có nghĩa là trình duyệt sẽ phân tích cú pháp HTML, khiến bất kỳ tag HTML nào được tiêm vào đều có thể thực thi.",
+            "Đây là endpoint `/v2/search` khác với `/search`, gợi ý đây là phiên bản API riêng biệt có thể có cơ chế xử lý đầu vào khác nhau."
           ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "hb-3434cc6afae3f596:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"GET\", \"path\": \"/product/1\"}",
-        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:24 GMT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 1399\r\nConnection: close\r\n\r\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Espresso Beans 1kg</title>\n  <style>\n    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; }\n    .banner { background: #b00020; color: #fff; padding: .6rem 1rem; margin: 0 -1rem 1rem; font-weight: 600; }\n    nav a { margin-right: 1rem; }\n    .comment { border-left: 3px solid #ccc; padding-left: .6rem; margin: .5rem 0; }\n    input, textarea, button { font: inherit; margin: .15rem 0; }\n  </style>\n</head>\n<body>\n  <div class=\"banner\">VulnShop is an intentionally vulnerable test application. Loopback only, fake data. Do not deploy it.\n    <br>Ứng dụng này cố ý có lỗ hổng, chỉ dùng để kiểm thử cục bộ, không triển khai.</div>\n  <nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Espresso Beans 1kg</h1>\n  \n<p>Dark roast, whole beans.</p>\n<p>$18.50</p>\n<h2>Comments</h2>\n\n<div class=\"comment\"><strong>alice</strong>: Great aroma.</div>\n\n<form id=\"comment-form\" data-api=\"/api\" data-product=\"1\">\n  <textarea name=\"body\" rows=\"3\" cols=\"40\" placeholder=\"Write a comment\"></textarea><br>\n  <button>Post comment</button>\n</form>\n<p id=\"comment-status\" role=\"status\"></p>\n\n  <script src=\"/static/app.js\"></script>\n</body>\n</html>",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-3434cc6afae3f596",
-        "agent_note": "The tool calls returned errors saying \"No such tool available: HTTPRequest\". Let me try to make the calls using the correct tool names as listed.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Response trả về HTTP 200.",
-            "Response phản chiếu lại '<script' nguyên văn."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
+          "remediation": "Áp dụng mã hóa HTML (HTML escaping) cho tất cả dữ liệu đầu vào từ người dùng trước khi chèn vào HTML response. Sử dụng hàm `escape()` của Jinja2/Werkzeug hoặc `markupsafe.escape()` trong Python. Thiết lập Content Security Policy (CSP) phù hợp để giảm thiểu tác động nếu XSS xảy ra.",
+          "confidence": "medium",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -244,102 +80,20 @@
         "trace_episode_id": "hb-afd5f977eb637b6b",
         "agent_note": "Now I understand the application structure. Let me test SQL injection on search, try login credentials, and explore API endpoints. The application has:\n- /search with q parameter (possible SQLi)\n- /v2/search with q parameter (different backend)\n- /login POST endpoint accepting JSON\n- /api/comments POST endpoint with Bearer token auth\n\nMy assumptions:\n1. The search endpoints likely use SQL and may be vulnerable to injection\n2. There may be default credentials to test\n3. The /api prefix may expose additional endpoints\n\nLet me explore these attack vectors.",
         "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "vuln_class": "Reflected Cross-Site Scripting",
+          "severity": "medium",
+          "cwe": "CWE-79",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Giá trị tham số `q` được phản chiếu nguyên văn vào trang HTML mà không có bằng chứng rõ ràng về mã hoá ký tự HTML, tạo ra bề mặt tấn công Reflected XSS tiềm năng.",
           "rationale": [
-            "Request chứa mẫu cú pháp SQL: `' OR '`.",
-            "Response trả về HTTP 200.",
-            "Response phản chiếu lại '<script' nguyên văn."
+            "Payload `' OR '1'='1` gửi qua tham số `q` được phản chiếu nguyên văn trong thẻ `<p>Results for: ' OR '1'='1</p>` mà không bị mã hoá HTML (không có `&#39;` hay `&apos;` thay thế dấu nháy đơn).",
+            "Response trả về `Content-Type: text/html; charset=utf-8`, do đó trình duyệt sẽ parse phần nội dung phản chiếu như HTML, nghĩa là ký tự `<`, `>` hoặc các event handler trong payload đều có khả năng được render.",
+            "Phản hồi trả về mã HTTP 200 và payload không được lọc bỏ hay biến đổi, cho thấy ứng dụng không áp dụng output encoding trên đường dẫn này.",
+            "Payload SQL injection tautology `' OR '1'='1` không tạo ra lỗi cơ sở dữ liệu và trả về 'No products found', do đó SQLi không được xác nhận từ bằng chứng này; lỗ hổng chủ yếu được ghi nhận là reflection không mã hoá."
           ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "hb-73136ff2ff0416a7:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"GET\", \"path\": \"/v2/search\", \"query\": \"q=' OR '1'='1\"}",
-        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:43 GMT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 1215\r\nConnection: close\r\n\r\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>VulnShop</title>\n  <style>\n    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; }\n    .banner { background: #b00020; color: #fff; padding: .6rem 1rem; margin: 0 -1rem 1rem; font-weight: 600; }\n    nav a { margin-right: 1rem; }\n    .comment { border-left: 3px solid #ccc; padding-left: .6rem; margin: .5rem 0; }\n    input, textarea, button { font: inherit; margin: .15rem 0; }\n  </style>\n</head>\n<body>\n  <div class=\"banner\">VulnShop is an intentionally vulnerable test application. Loopback only, fake data. Do not deploy it.\n    <br>Ứng dụng này cố ý có lỗ hổng, chỉ dùng để kiểm thử cục bộ, không triển khai.</div>\n  <nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Search</h1>\n  \n<form action=\"/v2/search\" method=\"get\">\n  <input name=\"q\" value=\"\">\n  <button>Search</button>\n</form>\n<p>Results for: &#39; OR &#39;1&#39;=&#39;1</p>\n<ul>\n  \n  <li>No products found.</li>\n  \n</ul>\n\n  <script src=\"/static/app.js\"></script>\n</body>\n</html>",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-73136ff2ff0416a7",
-        "agent_note": "Now I understand the application structure. Let me test SQL injection on search, try login credentials, and explore API endpoints. The application has:\n- /search with q parameter (possible SQLi)\n- /v2/search with q parameter (different backend)\n- /login POST endpoint accepting JSON\n- /api/comments POST endpoint with Bearer token auth\n\nMy assumptions:\n1. The search endpoints likely use SQL and may be vulnerable to injection\n2. There may be default credentials to test\n3. The /api prefix may expose additional endpoints\n\nLet me explore these attack vectors.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Request chứa mẫu cú pháp SQL: `' OR '`.",
-            "Response trả về HTTP 200.",
-            "Response phản chiếu lại '<script' nguyên văn."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "hb-91028dc2419510d4:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"POST\", \"path\": \"/login\", \"headers\": {\"Content-Type\": \"application/json\"}, \"body\": \"{\\\"username\\\": \\\"admin\\\", \\\"password\\\": \\\"admin\\\"}\"}",
-        "response": "HTTP/1.1 401 UNAUTHORIZED\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:43 GMT\r\nContent-Type: application/json\r\nContent-Length: 32\r\nConnection: close\r\n\r\n{\"error\":\"invalid credentials\"}\n",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-91028dc2419510d4",
-        "agent_note": "Now I understand the application structure. Let me test SQL injection on search, try login credentials, and explore API endpoints. The application has:\n- /search with q parameter (possible SQLi)\n- /v2/search with q parameter (different backend)\n- /login POST endpoint accepting JSON\n- /api/comments POST endpoint with Bearer token auth\n\nMy assumptions:\n1. The search endpoints likely use SQL and may be vulnerable to injection\n2. There may be default credentials to test\n3. The /api prefix may expose additional endpoints\n\nLet me explore these attack vectors.",
-        "label": {
-          "vuln_class": "Baseline / expected rejection",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Phản hồi từ chối hợp lệ (401/403) — dùng làm baseline so sánh, không phải lỗ hổng.",
-          "rationale": [
-            "Response trả về HTTP 401."
-          ],
-          "remediation": "Không cần hành động.",
-          "confidence": "high",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "hb-0a0136367812433d:observation",
-        "task_id": "t1",
-        "task_kind": "web",
-        "target": "http://127.0.0.1:5050",
-        "request": "{\"method\": \"GET\", \"path\": \"/api/products\"}",
-        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:43 GMT\r\nContent-Type: application/json\r\nContent-Length: 522\r\nConnection: close\r\n\r\n[{\"id\":1,\"name\":\"Espresso Beans 1kg\",\"price\":18.5,\"description\":\"Dark roast, whole beans.\"},{\"id\":2,\"name\":\"Ceramic Mug\",\"price\":7.0,\"description\":\"350 ml, dishwasher safe.\"},{\"id\":3,\"name\":\"Pour-over Kit\",\"price\":32.0,\"description\":\"Dripper, filter papers and server.\"},{\"id\":4,\"name\":\"Tea Sampler\",\"price\":14.25,\"description\":\"Six loose-leaf teas.\"},{\"id\":5,\"name\":\"Milk Frother\",\"price\":21.9,\"description\":\"Handheld, battery powered.\"},{\"id\":6,\"name\":\"Grinder\",\"price\":45.0,\"description\":\"Burr grinder, 15 settings.\"}]\n",
-        "is_error": false,
-        "evidence_sequences": [
-          2
-        ],
-        "trace_episode_id": "hb-0a0136367812433d",
-        "agent_note": "Now I understand the application structure. Let me test SQL injection on search, try login credentials, and explore API endpoints. The application has:\n- /search with q parameter (possible SQLi)\n- /v2/search with q parameter (different backend)\n- /login POST endpoint accepting JSON\n- /api/comments POST endpoint with Bearer token auth\n\nMy assumptions:\n1. The search endpoints likely use SQL and may be vulnerable to injection\n2. There may be default credentials to test\n3. The /api prefix may expose additional endpoints\n\nLet me explore these attack vectors.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Response trả về HTTP 200."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
+          "remediation": "Áp dụng HTML output encoding cho toàn bộ dữ liệu người dùng trước khi chèn vào HTML — ví dụ dùng `markupsafe.escape()` hoặc đảm bảo template Jinja2 dùng `{{ variable }}` (auto-escape) thay vì `{{ variable | safe }}`. Thiết lập header `Content-Security-Policy` để giảm thiểu tác động nếu XSS xảy ra.",
+          "confidence": "medium",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -356,18 +110,293 @@
         "trace_episode_id": "hb-ef958f61775a99b4",
         "agent_note": "Exploring the application with SQL injection tests, checking API endpoints, and trying default credentials. The search endpoint v1 shows raw query strings which is suspicious for SQLi. Let me test UNION-based injection and check for more API endpoints.",
         "label": {
-          "vuln_class": "Observation (needs review)",
+          "vuln_class": "SQL Wildcard Injection",
+          "severity": "medium",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Ký tự `%` (SQL LIKE wildcard) được truyền qua tham số `q` không bị lọc và dẫn đến trả về toàn bộ danh sách sản phẩm, gợi ý backend đang dùng câu truy vấn SQL LIKE không thoát metacharacter.",
+          "rationale": [
+            "Payload `%25` trong query string URL-decode thành `%` và được phản chiếu nguyên văn trong phản hồi HTML: `<p>Results for: %</p>`, xác nhận input không bị lọc trước khi đưa vào response.",
+            "Cả 6 sản phẩm được trả về (Espresso Beans 1kg, Ceramic Mug, Pour-over Kit, Tea Sampler, Milk Frother, Grinder) mặc dù không có tên nào chứa ký tự `%` theo nghĩa đen — điều này chỉ xảy ra nếu `%` được SQL engine hiểu là wildcard khớp tất cả.",
+            "Hành vi này nhất quán với câu lệnh SQL dạng `WHERE name LIKE '%' || '%' || '%'` (hoặc tương đương), trong đó input `%` của người dùng mở rộng điều kiện LIKE để khớp mọi bản ghi.",
+            "Không có bằng chứng về quá trình thoát (escaping) hay tham số hóa (parameterization) đầu vào: metacharacter SQL LIKE bị thực thi thay vì tìm kiếm theo nghĩa đen."
+          ],
+          "remediation": "Sử dụng prepared statement / parameterized query để truyền giá trị tìm kiếm, hoặc thoát (escape) các metacharacter SQL LIKE (`%`, `_`, `\\`) trước khi nhúng vào câu truy vấn. Ví dụ trong Python với SQLite/PostgreSQL: dùng `cursor.execute('SELECT … WHERE name LIKE ?', ('%' + escape(q) + '%',))` thay vì nối chuỗi trực tiếp.",
+          "confidence": "medium",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-05d7e5edb006dc42:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"GET\", \"path\": \"/\"}",
+        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:16 GMT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 1855\r\nConnection: close\r\n\r\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>VulnShop</title>\n  <style>\n    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; }\n    .banner { background: #b00020; color: #fff; padding: .6rem 1rem; margin: 0 -1rem 1rem; font-weight: 600; }\n    nav a { margin-right: 1rem; }\n    .comment { border-left: 3px solid #ccc; padding-left: .6rem; margin: .5rem 0; }\n    input, textarea, button { font: inherit; margin: .15rem 0; }\n  </style>\n</head>\n<body>\n  <div class=\"banner\">VulnShop is an intentionally vulnerable test application. Loopback only, fake data. Do not deploy it.\n    <br>Ứng dụng này cố ý có lỗ hổng, chỉ dùng để kiểm thử cục bộ, không triển khai.</div>\n  <nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Coffee &amp; Tea Shop</h1>\n  \n<form action=\"/search\" method=\"get\">\n  <input name=\"q\" placeholder=\"Search products\">\n  <button>Search</button>\n</form>\n<h2>Products</h2>\n<ul>\n  \n  <li><a href=\"/product/1\">Espresso Beans 1kg</a> — $18.50</li>\n  \n  <li><a href=\"/product/2\">Ceramic Mug</a> — $7.00</li>\n  \n  <li><a href=\"/product/3\">Pour-over Kit</a> — $32.00</li>\n  \n  <li><a href=\"/product/4\">Tea Sampler</a> — $14.25</li>\n  \n  <li><a href=\"/product/5\">Milk Frother</a> — $21.90</li>\n  \n  <li><a href=\"/product/6\">Grinder</a> — $45.00</li>\n  \n</ul>\n<h2>Sign in</h2>\n<form id=\"login-form\">\n  <input name=\"username\" placeholder=\"Username\" autocomplete=\"username\"><br>\n  <input name=\"password\" type=\"password\" placeholder=\"Password\" autocomplete=\"current-password\"><br>\n  <button>Sign in</button>\n</form>\n<p id=\"login-status\" role=\"status\"></p>\n\n  <script src=\"/static/app.js\"></script>\n</body>\n</html>",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-05d7e5edb006dc42",
+        "agent_note": "Let me start by exploring the website. I'll make initial requests to gather information about the application structure.",
+        "label": {
+          "vuln_class": "Information Disclosure",
+          "severity": "info",
+          "cwe": "CWE-200",
+          "owasp": "A01:2021 - Broken Access Control",
+          "explanation": "Trang chủ trả về thông tin về framework và phiên bản server trong HTTP header, đồng thời tự khai báo đây là ứng dụng cố ý có lỗ hổng (intentionally vulnerable).",
+          "rationale": [
+            "Header 'Server: Werkzeug/3.1.9 Python/3.13.17' tiết lộ tên và phiên bản chính xác của web framework và runtime đang sử dụng.",
+            "Banner trong HTML hiển thị rõ ràng 'VulnShop is an intentionally vulnerable test application', xác nhận đây là môi trường kiểm thử.",
+            "Ứng dụng liệt kê các endpoint điều hướng (/search, /v2/search) và các route sản phẩm (/product/1 đến /product/6) trong HTML nguồn, giúp attacker lập bản đồ attack surface.",
+            "Phản hồi HTTP 200 với nội dung đầy đủ không cho thấy bất kỳ cơ chế kiểm soát truy cập nào ở trang chủ."
+          ],
+          "remediation": "Trong môi trường sản xuất, cần ẩn hoặc tuỳ chỉnh header 'Server' để không tiết lộ tên và phiên bản framework. Tuy nhiên, vì đây là ứng dụng kiểm thử cục bộ (loopback only), không cần hành động khắc phục thực tế.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-062cfdf62a4055f7:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"GET\", \"path\": \"/robots.txt\"}",
+        "response": "HTTP/1.1 404 NOT FOUND\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:16 GMT\r\nContent-Type: application/json\r\nContent-Length: 22\r\nConnection: close\r\n\r\n{\"error\":\"Not Found\"}\n",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-062cfdf62a4055f7",
+        "agent_note": "Let me start by exploring the website. I'll make initial requests to gather information about the application structure.",
+        "label": {
+          "vuln_class": "Information Disclosure",
+          "severity": "info",
+          "cwe": "CWE-200",
+          "owasp": "A01:2021 - Broken Access Control",
+          "explanation": "Ứng dụng trả về phản hồi JSON với mã 404 khi truy cập /robots.txt, tiết lộ thông tin về framework phía server (Werkzeug/3.1.9 và Python/3.13.17) qua header Server.",
+          "rationale": [
+            "Header 'Server: Werkzeug/3.1.9 Python/3.13.17' trong response tiết lộ tên và phiên bản cụ thể của web framework và runtime đang sử dụng.",
+            "Mã phản hồi HTTP 404 xác nhận endpoint /robots.txt không tồn tại, không có thông tin nhạy cảm nào bị lộ qua nội dung file này.",
+            "Body phản hồi chỉ chứa '{\"error\":\"Not Found\"}' — không có stack trace, thông tin cơ sở dữ liệu hay chi tiết nhạy cảm nào khác.",
+            "Đây là một quan sát trinh sát đơn lẻ, không có bằng chứng về khai thác hay điều kiện lỗ hổng thực sự."
+          ],
+          "remediation": "Ẩn hoặc làm mờ header 'Server' để không tiết lộ tên và phiên bản framework/runtime. Trong Werkzeug, có thể cấu hình hoặc dùng reverse proxy (nginx, Apache) để ghi đè header này. Việc lộ phiên bản cụ thể giúp kẻ tấn công nhắm mục tiêu vào các CVE đã biết của phiên bản đó.",
+          "confidence": "high",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-a675160d9f4e8507:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"GET\", \"path\": \"/sitemap.xml\"}",
+        "response": "HTTP/1.1 404 NOT FOUND\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:16 GMT\r\nContent-Type: application/json\r\nContent-Length: 22\r\nConnection: close\r\n\r\n{\"error\":\"Not Found\"}\n",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-a675160d9f4e8507",
+        "agent_note": "Let me start by exploring the website. I'll make initial requests to gather information about the application structure.",
+        "label": {
+          "vuln_class": "Information Disclosure",
           "severity": "info",
           "cwe": null,
           "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "explanation": "Phản hồi 404 cho /sitemap.xml không tiết lộ lỗ hổng bảo mật. Đây chỉ là thông tin trinh sát ban đầu.",
           "rationale": [
-            "Response trả về HTTP 200.",
-            "Response phản chiếu lại '<script' nguyên văn."
+            "Request GET /sitemap.xml nhận phản hồi HTTP 404 NOT FOUND, cho thấy tài nguyên không tồn tại.",
+            "Header 'Server: Werkzeug/3.1.9 Python/3.13.17' tiết lộ công nghệ và phiên bản backend, có thể hữu ích cho kẻ tấn công nhưng không phải lỗ hổng nghiêm trọng.",
+            "Body phản hồi chỉ chứa {\"error\":\"Not Found\"} — không có thông tin nhạy cảm, stack trace hay thông báo lỗi chi tiết.",
+            "Không có bằng chứng injection, xác thực sai hay rò rỉ dữ liệu trong response này."
           ],
-          "remediation": "Xem lại request/response thủ công.",
+          "remediation": "Cân nhắc ẩn thông tin phiên bản trong header Server (ví dụ: cấu hình Werkzeug/reverse proxy để không trả về phiên bản cụ thể), nhằm giảm thiểu thông tin trinh sát cho kẻ tấn công.",
           "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-6d117958bbca4dd1:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"GET\", \"path\": \"/static/app.js\"}",
+        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:24 GMT, Wed, 28 Oct 2026 07:07:24 GMT\r\nContent-Disposition: inline; filename=app.js\r\nContent-Type: text/javascript; charset=utf-8\r\nContent-Length: 1675\r\nLast-Modified: Wed, 28 Oct 2026 05:07:18 GMT\r\nCache-Control: no-cache\r\nETag: \"1793164038.8856142-1675-981213265\"\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n(function () {\n  function show(id, text) {\n    var el = document.getElementById(id);\n    if (el) el.textContent = text;\n  }\n\n  var login = document.getElementById(\"login-form\");\n  if (login) {\n    login.addEventListener(\"submit\", function (event) {\n      event.preventDefault();\n      var data = Object.fromEntries(new FormData(login));\n      fetch(\"/login\", {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\" },\n        body: JSON.stringify(data),\n      })\n        .then(function (res) { return res.json().then(function (body) { return [res.ok, body]; }); })\n        .then(function (result) {\n          if (result[0]) {\n            sessionStorage.setItem(\"token\", result[1].token);\n            show(\"login-status\", \"Signed in as \" + result[1].user.username);\n          } else {\n            show(\"login-status\", result[1].error || \"Sign in failed\");\n          }\n        });\n    });\n  }\n\n  var comment = document.getElementById(\"comment-form\");\n  if (comment) {\n    comment.addEventListener(\"submit\", function (event) {\n      event.preventDefault();\n      var token = sessionStorage.getItem(\"token\");\n      if (!token) { show(\"comment-status\", \"Sign in first\"); return; }\n      fetch(comment.dataset.api + \"/comments\", {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\", Authorization: \"Bearer \" + token },\n        body: JSON.stringify({\n          product_id: Number(comment.dataset.product),\n          body: comment.elements.body.value,\n        }),\n      }).then(function (res) {\n        if (res.ok) { window.location.reload(); } else { show(\"comment-status\", \"Could not post comment\"); }\n      });\n    });\n  }\n})();\n",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-6d117958bbca4dd1",
+        "agent_note": "The tool calls returned errors saying \"No such tool available: HTTPRequest\". Let me try to make the calls using the correct tool names as listed.",
+        "label": {
+          "vuln_class": "Information Disclosure",
+          "severity": "info",
+          "cwe": "CWE-200",
+          "owasp": "A01:2021 - Broken Access Control",
+          "explanation": "File tĩnh app.js được phục vụ công khai, tiết lộ cấu trúc API nội bộ, cơ chế xác thực (Bearer token lưu trong sessionStorage), và các endpoint như /login, /comments.",
+          "rationale": [
+            "Response HTTP 200 trả về toàn bộ mã JavaScript phía client không bị obfuscate, bao gồm tên các endpoint /login và /comments.",
+            "Đoạn code chỉ rõ token xác thực được lưu trong sessionStorage với key 'token' — đây là thông tin thiết kế nhạy cảm giúp kẻ tấn công biết cách giả mạo yêu cầu.",
+            "Header Authorization sử dụng scheme 'Bearer' được hiển thị rõ ràng trong mã nguồn: `Authorization: \"Bearer \" + token`.",
+            "Tham số gửi lên API như `product_id` (kiểu Number) và `body` được lộ, hỗ trợ kẻ tấn công xây dựng payload tấn công chính xác hơn."
+          ],
+          "remediation": "Đây là mức độ thấp vì đây là file JS phía client thông thường; tuy nhiên cần cân nhắc: (1) Dùng obfuscation/minification để giảm khả năng đọc hiểu; (2) Xem xét lưu token trong HttpOnly cookie thay vì sessionStorage để tránh XSS đọc token; (3) Không có biện pháp nào ngăn hoàn toàn việc đọc JS phía client, nhưng cần đảm bảo logic phân quyền được thực thi ở phía server.",
+          "confidence": "high",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-57393cda475c0deb:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"GET\", \"path\": \"/search\", \"query\": \"q=test\"}",
+        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:24 GMT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 1189\r\nConnection: close\r\n\r\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>VulnShop</title>\n  <style>\n    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; }\n    .banner { background: #b00020; color: #fff; padding: .6rem 1rem; margin: 0 -1rem 1rem; font-weight: 600; }\n    nav a { margin-right: 1rem; }\n    .comment { border-left: 3px solid #ccc; padding-left: .6rem; margin: .5rem 0; }\n    input, textarea, button { font: inherit; margin: .15rem 0; }\n  </style>\n</head>\n<body>\n  <div class=\"banner\">VulnShop is an intentionally vulnerable test application. Loopback only, fake data. Do not deploy it.\n    <br>Ứng dụng này cố ý có lỗ hổng, chỉ dùng để kiểm thử cục bộ, không triển khai.</div>\n  <nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Search</h1>\n  \n<form action=\"/search\" method=\"get\">\n  <input name=\"q\" value=\"\">\n  <button>Search</button>\n</form>\n<p>Results for: test</p>\n<ul>\n  \n  <li>No products found.</li>\n  \n</ul>\n\n  <script src=\"/static/app.js\"></script>\n</body>\n</html>",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-57393cda475c0deb",
+        "agent_note": "The tool calls returned errors saying \"No such tool available: HTTPRequest\". Let me try to make the calls using the correct tool names as listed.",
+        "label": {
+          "vuln_class": "Information Disclosure",
+          "severity": "info",
+          "cwe": null,
+          "owasp": null,
+          "explanation": "Phản hồi trả về trang tìm kiếm bình thường với thông báo 'No products found.' cho từ khóa 'test'. Không có dấu hiệu lỗ hổng rõ ràng trong request/response này.",
+          "rationale": [
+            "Request GET /search?q=test trả về HTTP 200 với nội dung HTML bình thường, không có thông báo lỗi hay stack trace.",
+            "Giá trị tham số 'test' được phản chiếu trong body dưới dạng 'Results for: test', tuy nhiên đây là văn bản thuần, không có dấu hiệu thực thi mã hay injection.",
+            "Header Server tiết lộ 'Werkzeug/3.1.9 Python/3.13.17', đây là thông tin nhỏ về công nghệ phía server có trong response, nhưng không đủ để đánh giá là lỗ hổng nghiêm trọng.",
+            "Không có sự khác biệt kiểm chứng được (lỗi DB, dữ liệu ngoài phạm vi, payload đặc biệt) nào được quan sát trong evidence này để kết luận có lỗ hổng injection hay bất kỳ lớp lỗ hổng nào khác."
+          ],
+          "remediation": "Ẩn thông tin phiên bản server bằng cách cấu hình Werkzeug không trả về header Server chi tiết (hoặc dùng reverse proxy che đi). Nếu giá trị tham số 'q' được nhúng vào HTML, cần đảm bảo escape đúng để tránh XSS, mặc dù evidence hiện tại chưa xác nhận điều này.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-3434cc6afae3f596:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"GET\", \"path\": \"/product/1\"}",
+        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:24 GMT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 1399\r\nConnection: close\r\n\r\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Espresso Beans 1kg</title>\n  <style>\n    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; }\n    .banner { background: #b00020; color: #fff; padding: .6rem 1rem; margin: 0 -1rem 1rem; font-weight: 600; }\n    nav a { margin-right: 1rem; }\n    .comment { border-left: 3px solid #ccc; padding-left: .6rem; margin: .5rem 0; }\n    input, textarea, button { font: inherit; margin: .15rem 0; }\n  </style>\n</head>\n<body>\n  <div class=\"banner\">VulnShop is an intentionally vulnerable test application. Loopback only, fake data. Do not deploy it.\n    <br>Ứng dụng này cố ý có lỗ hổng, chỉ dùng để kiểm thử cục bộ, không triển khai.</div>\n  <nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Espresso Beans 1kg</h1>\n  \n<p>Dark roast, whole beans.</p>\n<p>$18.50</p>\n<h2>Comments</h2>\n\n<div class=\"comment\"><strong>alice</strong>: Great aroma.</div>\n\n<form id=\"comment-form\" data-api=\"/api\" data-product=\"1\">\n  <textarea name=\"body\" rows=\"3\" cols=\"40\" placeholder=\"Write a comment\"></textarea><br>\n  <button>Post comment</button>\n</form>\n<p id=\"comment-status\" role=\"status\"></p>\n\n  <script src=\"/static/app.js\"></script>\n</body>\n</html>",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-3434cc6afae3f596",
+        "agent_note": "The tool calls returned errors saying \"No such tool available: HTTPRequest\". Let me try to make the calls using the correct tool names as listed.",
+        "label": {
+          "vuln_class": "Information Disclosure",
+          "severity": "info",
+          "cwe": null,
+          "owasp": null,
+          "explanation": "Phản hồi trả về trang sản phẩm hợp lệ với nội dung bình thường. Không có dấu hiệu lỗ hổng bảo mật nào được xác nhận từ bằng chứng này.",
+          "rationale": [
+            "Request GET /product/1 trả về HTTP 200 với nội dung HTML hợp lệ của trang sản phẩm 'Espresso Beans 1kg'.",
+            "Header Server tiết lộ thông tin phiên bản cụ thể: 'Werkzeug/3.1.9 Python/3.13.17', đây là thông tin rò rỉ nhỏ nhưng không nguy hiểm nghiêm trọng.",
+            "Trang hiển thị banner cảnh báo rõ ràng rằng đây là ứng dụng cố ý có lỗ hổng dùng để kiểm thử, không có dữ liệu thật.",
+            "Không có payload injection, thông báo lỗi cơ sở dữ liệu, hay dữ liệu bất thường nào trong response để xác nhận bất kỳ lỗ hổng nào.",
+            "AGENT_NOTE chỉ đề cập lỗi công cụ nội bộ, không cung cấp bằng chứng về lỗ hổng trong ứng dụng."
+          ],
+          "remediation": "Ẩn thông tin phiên bản server trong header HTTP (ví dụ: cấu hình Werkzeug để không trả về header Server chi tiết). Đây là biện pháp phòng thủ theo chiều sâu để giảm thiểu rò rỉ thông tin kỹ thuật.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-73136ff2ff0416a7:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"GET\", \"path\": \"/v2/search\", \"query\": \"q=' OR '1'='1\"}",
+        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:43 GMT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 1215\r\nConnection: close\r\n\r\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>VulnShop</title>\n  <style>\n    body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; }\n    .banner { background: #b00020; color: #fff; padding: .6rem 1rem; margin: 0 -1rem 1rem; font-weight: 600; }\n    nav a { margin-right: 1rem; }\n    .comment { border-left: 3px solid #ccc; padding-left: .6rem; margin: .5rem 0; }\n    input, textarea, button { font: inherit; margin: .15rem 0; }\n  </style>\n</head>\n<body>\n  <div class=\"banner\">VulnShop is an intentionally vulnerable test application. Loopback only, fake data. Do not deploy it.\n    <br>Ứng dụng này cố ý có lỗ hổng, chỉ dùng để kiểm thử cục bộ, không triển khai.</div>\n  <nav><a href=\"/\">Home</a><a href=\"/search\">Search</a><a href=\"/v2/search\">Search (v2)</a></nav>\n  <h1>Search</h1>\n  \n<form action=\"/v2/search\" method=\"get\">\n  <input name=\"q\" value=\"\">\n  <button>Search</button>\n</form>\n<p>Results for: &#39; OR &#39;1&#39;=&#39;1</p>\n<ul>\n  \n  <li>No products found.</li>\n  \n</ul>\n\n  <script src=\"/static/app.js\"></script>\n</body>\n</html>",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-73136ff2ff0416a7",
+        "agent_note": "Now I understand the application structure. Let me test SQL injection on search, try login credentials, and explore API endpoints. The application has:\n- /search with q parameter (possible SQLi)\n- /v2/search with q parameter (different backend)\n- /login POST endpoint accepting JSON\n- /api/comments POST endpoint with Bearer token auth\n\nMy assumptions:\n1. The search endpoints likely use SQL and may be vulnerable to injection\n2. There may be default credentials to test\n3. The /api prefix may expose additional endpoints\n\nLet me explore these attack vectors.",
+        "label": {
+          "vuln_class": "SQL Injection",
+          "severity": "info",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Payload SQL injection cổ điển được gửi đến tham số `q` của endpoint `/v2/search`, nhưng phản hồi không đủ bằng chứng để xác nhận lỗ hổng tồn tại.",
+          "rationale": [
+            "Payload `' OR '1'='1` được phản chiếu trong body HTML tại dòng `Results for: &#39; OR &#39;1&#39;=&#39;1` — tuy nhiên, các dấu nháy đơn đã bị mã hoá thành `&#39;`, không phải phản chiếu nguyên văn, nên không đủ điều kiện làm bằng chứng injection.",
+            "Kết quả trả về là `No products found.` với payload `OR '1'='1'` — nếu injection thành công trên câu lệnh `WHERE name = '[INPUT]'`, điều kiện luôn đúng này lẽ ra phải trả về toàn bộ sản phẩm; tuy nhiên chỉ có MỘT quan sát nên không thể loại trừ khả năng cơ sở dữ liệu rỗng.",
+            "Không có thông báo lỗi cơ sở dữ liệu nào xuất hiện trong response (không có stack trace, không có syntax error), nên không thể xác nhận error-based SQLi.",
+            "Không có baseline (kết quả truy vấn bình thường) để so sánh, do đó không thể kết luận hành vi `No products found` là khác thường hay là phản ứng bình thường của ứng dụng.",
+            "Cần ít nhất hai quan sát (TRUE condition vs FALSE condition cho kết quả khác nhau, hoặc thông báo lỗi SQL) để xác nhận blind hoặc error-based SQL injection; bằng chứng hiện tại không đáp ứng tiêu chí này."
+          ],
+          "remediation": "Để phòng ngừa SQL Injection, hãy sử dụng truy vấn tham số hoá (parameterized queries / prepared statements) thay vì nối chuỗi trực tiếp vào câu SQL. Thực hiện kiểm tra thêm với các payload TRUE/FALSE khác nhau (ví dụ: `' OR 'a'='a` vs `' OR 'a'='b`) để xác nhận hoặc loại trừ lỗ hổng trước khi vá.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-91028dc2419510d4:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"POST\", \"path\": \"/login\", \"headers\": {\"Content-Type\": \"application/json\"}, \"body\": \"{\\\"username\\\": \\\"admin\\\", \\\"password\\\": \\\"admin\\\"}\"}",
+        "response": "HTTP/1.1 401 UNAUTHORIZED\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:43 GMT\r\nContent-Type: application/json\r\nContent-Length: 32\r\nConnection: close\r\n\r\n{\"error\":\"invalid credentials\"}\n",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-91028dc2419510d4",
+        "agent_note": "Now I understand the application structure. Let me test SQL injection on search, try login credentials, and explore API endpoints. The application has:\n- /search with q parameter (possible SQLi)\n- /v2/search with q parameter (different backend)\n- /login POST endpoint accepting JSON\n- /api/comments POST endpoint with Bearer token auth\n\nMy assumptions:\n1. The search endpoints likely use SQL and may be vulnerable to injection\n2. There may be default credentials to test\n3. The /api prefix may expose additional endpoints\n\nLet me explore these attack vectors.",
+        "label": {
+          "vuln_class": "Insufficient Information",
+          "severity": "info",
+          "cwe": null,
+          "owasp": null,
+          "explanation": "Yêu cầu đăng nhập với thông tin xác thực mặc định (admin/admin) bị từ chối với mã HTTP 401 — không có bằng chứng về lỗ hổng bảo mật.",
+          "rationale": [
+            "Request gửi POST /login với body JSON {\"username\": \"admin\", \"password\": \"admin\"} — đây là thử nghiệm thông tin xác thực mặc định.",
+            "Response trả về HTTP 401 UNAUTHORIZED, cho thấy máy chủ từ chối thông tin xác thực này.",
+            "Body phản hồi chỉ chứa {\"error\":\"invalid credentials\"} — không có thông báo lỗi cơ sở dữ liệu, stack trace, hay thông tin nhạy cảm nào bị lộ.",
+            "Không có payload injection nào trong request này (username và password đều là chuỗi văn bản thuần túy), nên không thể kết luận về SQL Injection hay bất kỳ lỗ hổng nào khác.",
+            "AGENT_NOTE đề cập đến các giả định về SQLi nhưng EVIDENCE không xác nhận bất kỳ điều gì trong số đó."
+          ],
+          "remediation": "Không cần khắc phục dựa trên bằng chứng hiện tại. Cần thêm bằng chứng (ví dụ: thông báo lỗi DB, phản hồi khác nhau giữa payload đúng/sai) để xác định lỗ hổng thực sự.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
+        }
+      },
+      {
+        "id": "hb-0a0136367812433d:observation",
+        "task_id": "t1",
+        "task_kind": "web",
+        "target": "http://127.0.0.1:5050",
+        "request": "{\"method\": \"GET\", \"path\": \"/api/products\"}",
+        "response": "HTTP/1.1 200 OK\r\nServer: Werkzeug/3.1.9 Python/3.13.17\r\nDate: Wed, 28 Oct 2026 07:07:43 GMT\r\nContent-Type: application/json\r\nContent-Length: 522\r\nConnection: close\r\n\r\n[{\"id\":1,\"name\":\"Espresso Beans 1kg\",\"price\":18.5,\"description\":\"Dark roast, whole beans.\"},{\"id\":2,\"name\":\"Ceramic Mug\",\"price\":7.0,\"description\":\"350 ml, dishwasher safe.\"},{\"id\":3,\"name\":\"Pour-over Kit\",\"price\":32.0,\"description\":\"Dripper, filter papers and server.\"},{\"id\":4,\"name\":\"Tea Sampler\",\"price\":14.25,\"description\":\"Six loose-leaf teas.\"},{\"id\":5,\"name\":\"Milk Frother\",\"price\":21.9,\"description\":\"Handheld, battery powered.\"},{\"id\":6,\"name\":\"Grinder\",\"price\":45.0,\"description\":\"Burr grinder, 15 settings.\"}]\n",
+        "is_error": false,
+        "evidence_sequences": [
+          2
+        ],
+        "trace_episode_id": "hb-0a0136367812433d",
+        "agent_note": "Now I understand the application structure. Let me test SQL injection on search, try login credentials, and explore API endpoints. The application has:\n- /search with q parameter (possible SQLi)\n- /v2/search with q parameter (different backend)\n- /login POST endpoint accepting JSON\n- /api/comments POST endpoint with Bearer token auth\n\nMy assumptions:\n1. The search endpoints likely use SQL and may be vulnerable to injection\n2. There may be default credentials to test\n3. The /api prefix may expose additional endpoints\n\nLet me explore these attack vectors.",
+        "label": {
+          "vuln_class": "Information Disclosure",
+          "severity": "info",
+          "cwe": "CWE-200",
+          "owasp": "A01:2021 - Broken Access Control",
+          "explanation": "Endpoint /api/products trả về danh sách sản phẩm công khai không có xác thực. Đây là hành vi bình thường của một API sản phẩm công khai, chưa đủ bằng chứng để xác định lỗ hổng.",
+          "rationale": [
+            "Request GET /api/products không kèm bất kỳ token xác thực nào và nhận về HTTP 200 OK với toàn bộ danh sách sản phẩm.",
+            "Response body chứa 6 bản ghi sản phẩm với các trường id, name, price, description — đây là dữ liệu thương mại thông thường, không phải dữ liệu nhạy cảm.",
+            "Header Server tiết lộ 'Werkzeug/3.1.9 Python/3.13.17', cung cấp thông tin phiên bản framework và runtime nhưng không đủ để xác nhận lỗ hổng cụ thể.",
+            "Không có thông báo lỗi cơ sở dữ liệu, payload injection, hay dữ liệu nằm ngoài phạm vi truy vấn nào xuất hiện trong response này."
+          ],
+          "remediation": "Nếu endpoint này không cần công khai, hãy thêm xác thực (Bearer token hoặc session). Nên ẩn header Server để không lộ thông tin phiên bản Werkzeug/Python. Nếu đây là dữ liệu công khai có chủ ý, không cần hành động thêm.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -384,19 +413,21 @@
         "trace_episode_id": "hb-81a37af908fc6384",
         "agent_note": "Exploring the application with SQL injection tests, checking API endpoints, and trying default credentials. The search endpoint v1 shows raw query strings which is suspicious for SQLi. Let me test UNION-based injection and check for more API endpoints.",
         "label": {
-          "vuln_class": "Observation (needs review)",
+          "vuln_class": "SQL Injection",
           "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Payload UNION SELECT được gửi tới endpoint /search nhưng không có bằng chứng đủ để xác nhận SQL Injection: không có thông báo lỗi CSDL, không có dữ liệu bị rò rỉ, không có điều kiện TRUE/FALSE có thể so sánh.",
           "rationale": [
-            "Request chứa mẫu cú pháp SQL: `UNION SELECT`.",
-            "Response trả về HTTP 200.",
-            "Response phản chiếu lại '<script' nguyên văn."
+            "Payload `' UNION SELECT 1,2,3,4--` được phản chiếu nguyên văn trong thẻ `<p>Results for: ' UNION SELECT 1,2,3,4--</p>`, cho thấy đây là hành vi echo truy vấn tìm kiếm thông thường, không phải bằng chứng SQL injection.",
+            "Response trả về `<li>No products found.</li>` — các cột số 1, 2, 3, 4 từ UNION SELECT không xuất hiện trong kết quả, nghĩa là UNION không trả về hàng nào hoặc câu lệnh bị xử lý qua tham số hoá.",
+            "Không có thông báo lỗi cơ sở dữ liệu nào (ví dụ: syntax error, ORA-, mysql_) xuất hiện trong response body, nên không thể xác định backend CSDL hay xác nhận injection.",
+            "Chỉ có một quan sát duy nhất, không có baseline so sánh với truy vấn hợp lệ — theo quy tắc bằng chứng, không thể kết luận 'khác với bình thường'.",
+            "Server header chỉ tiết lộ `Werkzeug/3.1.9 Python/3.13.17`; không có tên CSDL nào được xác nhận trong REQUEST/RESPONSE."
           ],
-          "remediation": "Xem lại request/response thủ công.",
+          "remediation": "Để kiểm tra chắc chắn hơn: (1) Thử payload tạo điều kiện Boolean đối lập (vd `' AND 1=1--` vs `' AND 1=2--`) và so sánh kết quả; (2) Kiểm tra xem số cột trong UNION có khớp với truy vấn gốc không (thử với 1, 2, 3... cột); (3) Sử dụng time-based payload để phát hiện blind injection. Về phòng thủ: sử dụng truy vấn tham số hoá (parameterized queries / prepared statements), không bao giờ nối chuỗi trực tiếp đầu vào người dùng vào SQL.",
           "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -413,17 +444,20 @@
         "trace_episode_id": "hb-49d47ba2dd395e94",
         "agent_note": "Exploring the application with SQL injection tests, checking API endpoints, and trying default credentials. The search endpoint v1 shows raw query strings which is suspicious for SQLi. Let me test UNION-based injection and check for more API endpoints.",
         "label": {
-          "vuln_class": "Observation (needs review)",
+          "vuln_class": "Endpoint Not Found",
           "severity": "info",
           "cwe": null,
           "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "explanation": "Endpoint /api/users trả về HTTP 404, không tồn tại hoặc không được phép truy cập. Không có bằng chứng về lỗ hổng bảo mật.",
           "rationale": [
-            "Response trả về HTTP 404."
+            "Phản hồi HTTP có mã trạng thái 404 NOT FOUND, cho thấy endpoint /api/users không tồn tại trên server.",
+            "Body phản hồi chỉ chứa chuỗi lỗi đơn giản {\"error\":\"Not Found\"}, không tiết lộ thông tin nhạy cảm hay stack trace.",
+            "Request là GET thuần túy không chứa payload injection nào, không có cơ sở để đánh giá lỗ hổng SQL Injection hay bất kỳ lớp lỗ hổng nào khác.",
+            "AGENT_NOTE đề cập đến SQL injection và 'search endpoint v1 shows raw query strings' nhưng không có dữ liệu nào trong REQUEST/RESPONSE này xác nhận điều đó."
           ],
-          "remediation": "Xem lại request/response thủ công.",
+          "remediation": "Không cần khắc phục cho quan sát này. Nếu muốn tăng cường bảo mật, có thể xem xét đảm bảo rằng các thông báo lỗi không tiết lộ thông tin nội bộ của hệ thống.",
           "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -440,20 +474,23 @@
         "trace_episode_id": "hb-1ddd9ff0a9efdfa3",
         "agent_note": "Exploring the application with SQL injection tests, checking API endpoints, and trying default credentials. The search endpoint v1 shows raw query strings which is suspicious for SQLi. Let me test UNION-based injection and check for more API endpoints.",
         "label": {
-          "vuln_class": "Baseline / expected rejection",
+          "vuln_class": "Default Credentials / Authentication Failure",
           "severity": "info",
-          "cwe": null,
+          "cwe": "CWE-521",
           "owasp": null,
-          "explanation": "Phản hồi từ chối hợp lệ (401/403) — dùng làm baseline so sánh, không phải lỗ hổng.",
+          "explanation": "Yêu cầu đăng nhập với thông tin xác thực mặc định (admin/password) đã bị từ chối với mã HTTP 401.",
           "rationale": [
-            "Response trả về HTTP 401."
+            "Request POST /login gửi payload JSON với username='admin' và password='password' — là tổ hợp thông tin xác thực mặc định phổ biến.",
+            "Server phản hồi HTTP 401 UNAUTHORIZED, xác nhận rằng thông tin xác thực này không hợp lệ trên hệ thống đang kiểm thử.",
+            "Body phản hồi chứa chuỗi '{\"error\":\"invalid credentials\"}', cho thấy ứng dụng từ chối đăng nhập một cách rõ ràng.",
+            "Không có dữ liệu nào trong RESPONSE xác nhận thành công xác thực, rò rỉ thông tin nhạy cảm, hay dấu hiệu injection từ payload này."
           ],
-          "remediation": "Không cần hành động.",
-          "confidence": "high",
-          "labeled_by": "heuristic"
+          "remediation": "Không có lỗ hổng được xác nhận trong quan sát này. Tuy nhiên, cần đảm bảo rằng tất cả tài khoản mặc định đã được vô hiệu hoá hoặc đổi mật khẩu trước khi triển khai. Nên áp dụng cơ chế giới hạn số lần đăng nhập (rate limiting / account lockout) để chống brute-force.",
+          "confidence": "low",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       }
     ],
-    "labeled_by": "heuristic"
+    "labeled_by": "llm-cli:claude-sonnet-4-6"
   }
 }

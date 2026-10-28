@@ -14,15 +14,15 @@
   "error": "supervisor_contract: Supervisor failed after 2 attempts: AgentRunError: Claude Code process failed (exit 1):",
   "wall_duration_s": 165.0,
   "cost_usd": 0.8065179,
-  "labeled_by": "heuristic",
+  "labeled_by": "llm-cli:claude-sonnet-4-6",
   "oracle_newly_solved": [
     "errorHandlingChallenge"
   ],
   "leak_flags": [],
   "provenance": {
-    "repo_commit": "851ac93",
+    "repo_commit": "05cf783",
     "repo_dirty": false,
-    "protocol_sha256": "dbb49eca791b547884085bc61975f87ae6f68e5ead911246c33e3c01a9992b9e",
+    "protocol_sha256": "c392bf3d02b558fe7ca458034d5d7f86a1c1495895c8e3d70c00e8fc8d98f3db",
     "manifest_sha256": "f1f940cc45acc3dd2758254d8e341f757b999bf7fbb155a573e56403c5fe9c6f",
     "target_reference": "juice-shop 20.3.0 (release juice-shop-20.3.0_node22_linux_x64.tgz), clean start"
   },
@@ -52,18 +52,21 @@
         "trace_episode_id": "executor-58e560dc0bfd467e9ef01da2cc9e9c87",
         "agent_note": "Baseline q=apple returned HTTP 200 with well-formed JSON. Syntax-breaking probe q=apple' returned HTTP 500 with \"SQLITE_ERROR: near \\\"'%'\\\": syntax error\", confirming the /rest/products/search endpoint is injectable. Tautology probe q=apple'-- also returned HTTP 500.",
         "label": {
-          "vuln_class": "Possible SQL Injection (error-based)",
-          "severity": "medium",
+          "vuln_class": "SQL Injection",
+          "severity": "high",
           "cwe": "CWE-89",
           "owasp": "A03:2021 - Injection",
-          "explanation": "Input chứa ký tự SQL khiến server trả về lỗi cơ sở dữ liệu (thông báo lỗi SQL hoặc HTTP 500) — câu truy vấn bị input tác động, dấu hiệu SQL injection cần xác minh thêm.",
+          "explanation": "Endpoint /rest/products/search không lọc đầu vào người dùng trước khi nhúng vào câu truy vấn SQL, dẫn đến lỗi cú pháp SQL bị phơi lộ trực tiếp ra client khi có ký tự đặc biệt.",
           "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response.",
-            "Response chứa thông báo lỗi cơ sở dữ liệu: `SQLITE_ERROR`."
+            "RESPONSE trả về chuỗi 'SQLITE_ERROR: near \\'%\\': syntax error' — đây là thông báo lỗi gốc từ engine SQLite được truyền thẳng ra HTTP response, xác nhận input chưa qua escaping.",
+            "Chuỗi `near \"'%\"` trong lỗi cho thấy dấu nháy đơn từ payload (ký tự `'`) đã được nhúng trực tiếp vào truy vấn dạng `LIKE '%...'`, phá vỡ cú pháp SQL.",
+            "HTTP status 500 trong RESPONSE xác nhận server xử lý truy vấn SQL bị lỗi thay vì trả về lỗi kiểm tra đầu vào ở tầng ứng dụng.",
+            "Tên engine 'SQLITE_ERROR' xuất hiện trong chính RESPONSE (không chỉ từ AGENT_NOTE), xác nhận công nghệ cơ sở dữ liệu là SQLite và rằng lỗi runtime DB bị lộ ra ngoài.",
+            "Lỗi syntax error do injection xác nhận không có prepared statement hay parameterized query — kẻ tấn công có thể tiến hành UNION-based hoặc blind SQLi để đọc toàn bộ schema và dữ liệu."
           ],
-          "remediation": "Tham số hoá truy vấn; không để thông báo lỗi SQL lộ ra client.",
-          "confidence": "medium",
-          "labeled_by": "heuristic"
+          "remediation": "Sử dụng parameterized queries (prepared statements) thay vì nối chuỗi trực tiếp vào SQL. Với Node.js/SQLite, dùng dạng `db.all('SELECT ... WHERE name LIKE ?', ['%' + term + '%'])`. Đồng thời tắt chi tiết lỗi cơ sở dữ liệu trong response HTTP — chỉ ghi log phía server và trả về thông báo lỗi chung cho client.",
+          "confidence": "high",
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       },
       {
@@ -80,20 +83,24 @@
         "trace_episode_id": "executor-2336ed1a16004d0db58dea083973526c",
         "agent_note": "OWASP Juice Shop at http://127.0.0.1:3000 exposes three primary SQL injection candidate surfaces: (1) POST /rest/user/login — JSON body fields `email` and `password`; (2) GET /rest/products/search — query parameter `q`; (3) GET /api/Products — REST collection endpoint. The login endpoint returned \"Invalid email or password.\" confirming it processes input. The search endpoint accepted the `q` parameter and returned filtered results, confirming it queries a database. All are reachable and accept user-controlled input.",
         "label": {
-          "vuln_class": "Observation (needs review)",
+          "vuln_class": "SQL Injection",
           "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Endpoint nhận tham số do người dùng kiểm soát và truy vấn cơ sở dữ liệu, nhưng bằng chứng hiện tại chưa xác nhận lỗ hổng SQL Injection thực sự.",
           "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
+            "Request sử dụng payload hợp lệ `q=apple` — không có ký tự đặc biệt SQL nào (như `'`, `--`, `OR 1=1`) được gửi đi, nên không thể quan sát phản ứng của ứng dụng với đầu vào độc hại.",
+            "Response trả về HTTP 200 với dữ liệu sản phẩm khớp đúng từ khoá 'apple' — đây là hành vi bình thường, không phải bằng chứng injection.",
+            "Không có thông báo lỗi cơ sở dữ liệu nào xuất hiện trong response body để xác nhận lỗ hổng.",
+            "Chỉ có một quan sát duy nhất, không có baseline TRUE/FALSE hay so sánh điều kiện để phát hiện blind injection.",
+            "Kết luận về tính dễ bị tấn công chỉ đến từ AGENT_NOTE, không được xác nhận bởi REQUEST/RESPONSE."
           ],
-          "remediation": "Xem lại request/response thủ công.",
+          "remediation": "Để xác nhận hoặc loại trừ SQL Injection, cần kiểm thử thêm với payload thực sự (ví dụ: `q='`, `q=apple' OR '1'='1`, `q=apple'; SELECT sleep(3)--`). Nếu lỗ hổng tồn tại, hãy sử dụng parameterized query / prepared statement, ORM với binding parameter, và validate/encode đầu vào phía server.",
           "confidence": "low",
-          "labeled_by": "heuristic"
+          "labeled_by": "llm-cli:claude-sonnet-4-6"
         }
       }
     ],
-    "labeled_by": "heuristic"
+    "labeled_by": "llm-cli:claude-sonnet-4-6"
   }
 }

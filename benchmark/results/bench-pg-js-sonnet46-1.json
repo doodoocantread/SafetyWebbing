@@ -20,9 +20,9 @@
   ],
   "leak_flags": [],
   "provenance": {
-    "repo_commit": "83be606",
+    "repo_commit": "851ac93",
     "repo_dirty": false,
-    "protocol_sha256": "a8d73f9240152f9d5f2cb0b3ebcd888d7a23c43db2c88a36e178640aad7a1353",
+    "protocol_sha256": "dbb49eca791b547884085bc61975f87ae6f68e5ead911246c33e3c01a9992b9e",
     "manifest_sha256": "f1f940cc45acc3dd2758254d8e341f757b999bf7fbb155a573e56403c5fe9c6f",
     "target_reference": "juice-shop 20.3.0 (release juice-shop-20.3.0_node22_linux_x64.tgz), clean start"
   },

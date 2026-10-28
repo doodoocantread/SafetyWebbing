@@ -21,9 +21,9 @@
   ],
   "leak_flags": [],
   "provenance": {
-    "repo_commit": "83be606",
+    "repo_commit": "851ac93",
     "repo_dirty": false,
-    "protocol_sha256": "a8d73f9240152f9d5f2cb0b3ebcd888d7a23c43db2c88a36e178640aad7a1353",
+    "protocol_sha256": "dbb49eca791b547884085bc61975f87ae6f68e5ead911246c33e3c01a9992b9e",
     "manifest_sha256": "f1f940cc45acc3dd2758254d8e341f757b999bf7fbb155a573e56403c5fe9c6f",
     "target_reference": "juice-shop 20.3.0 (release juice-shop-20.3.0_node22_linux_x64.tgz), clean start"
   },
@@ -61,37 +61,11 @@
           "rationale": [
             "Request chứa mẫu cú pháp SQL: `' OR 1=1`.",
             "Response trả về HTTP 200.",
-            "Body response chứa 'authentication', 'token' — dấu hiệu đăng nhập thành công."
+            "Body response chứa 'authentication', 'token' — dấu hiệu đăng nhập thành công.",
+            "Ghi chú của agent khẳng định (lời khai, chưa kiểm chứng): \"SQL injection confirmed on POST /rest/user/login.\""
           ],
           "remediation": "Dùng truy vấn tham số hoá (prepared statements / ORM), không nối chuỗi SQL trực tiếp từ input. Xác thực và chuẩn hoá input phía server.",
           "confidence": "high",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "f38aca94870249449591f90e89f53e7b:observation",
-        "task_id": "t1",
-        "task_kind": "discover",
-        "target": "http://127.0.0.1:3000",
-        "request": "timeout -k 5 20 curl -sS --max-time 15 \"http://127.0.0.1:3000/rest/products/search?q=apple\" | head -c 400; echo; echo \"---LOGIN---\"; timeout -k 5 20 curl -sS --max-time 15 -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"x\"}' \"http://127.0.0.1:3000/rest/user/login\" | head -c 400",
-        "response": "Invalid email or password.",
-        "is_error": false,
-        "evidence_sequences": [
-          14
-        ],
-        "trace_episode_id": "executor-f38aca94870249449591f90e89f53e7b",
-        "agent_note": "Enumerated OWASP Juice Shop at http://127.0.0.1:3000. Found two reachable endpoints with user-controllable params reaching SQL queries: GET /rest/products/search with query param q (returns product data), and POST /rest/user/login with JSON email/password fields (returned Invalid email or password.). Both are candidate SQL injection input surfaces; the login email field is the strongest candidate.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
           "labeled_by": "heuristic"
         }
       },
@@ -108,6 +82,34 @@
         ],
         "trace_episode_id": "executor-fcbe86cd74184eeebc7eb6064b8c44cb",
         "agent_note": "SQL injection confirmed in the /rest/user/login email field (OWASP Juice Shop). Baseline benign email returned HTTP 401 \"Invalid email or password.\"; a lone single quote triggered an HTTP 500 Express error (SQL error signal); the tautology `' OR '1'='1'-- ` produced HTTP 200 with a valid authentication JWT decoding to the admin account (admin@juice-sh.op, role admin) — an authentication bypass. The response differential across the three controls evidences the email input reaching a SQL query.",
+        "label": {
+          "vuln_class": "SQL Injection (agent-reported, unverified)",
+          "severity": "medium",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Ghi chú của agent khẳng định đã xác nhận SQL Injection, nhưng request/response ghi lại không đủ bằng chứng để labeler tự kiểm chứng. Đây là lời khai của agent, không phải quan sát đã xác minh.",
+          "rationale": [
+            "Không đọc được mã trạng thái HTTP trong response.",
+            "Ghi chú của agent khẳng định (lời khai, chưa kiểm chứng): \"SQL injection confirmed in the /rest/user/login email field (OWASP Juice Shop).\""
+          ],
+          "remediation": "Kiểm chứng thủ công hoặc bằng oracle của target trước khi coi là lỗ hổng thật; nếu đúng thì vá theo khuyến nghị chuẩn của loại lỗ hổng này.",
+          "confidence": "low",
+          "labeled_by": "heuristic"
+        }
+      },
+      {
+        "id": "f38aca94870249449591f90e89f53e7b:observation",
+        "task_id": "t1",
+        "task_kind": "discover",
+        "target": "http://127.0.0.1:3000",
+        "request": "timeout -k 5 20 curl -sS --max-time 15 \"http://127.0.0.1:3000/rest/products/search?q=apple\" | head -c 400; echo; echo \"---LOGIN---\"; timeout -k 5 20 curl -sS --max-time 15 -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"x\"}' \"http://127.0.0.1:3000/rest/user/login\" | head -c 400",
+        "response": "Invalid email or password.",
+        "is_error": false,
+        "evidence_sequences": [
+          14
+        ],
+        "trace_episode_id": "executor-f38aca94870249449591f90e89f53e7b",
+        "agent_note": "Enumerated OWASP Juice Shop at http://127.0.0.1:3000. Found two reachable endpoints with user-controllable params reaching SQL queries: GET /rest/products/search with query param q (returns product data), and POST /rest/user/login with JSON email/password fields (returned Invalid email or password.). Both are candidate SQL injection input surfaces; the login email field is the strongest candidate.",
         "label": {
           "vuln_class": "Observation (needs review)",
           "severity": "info",

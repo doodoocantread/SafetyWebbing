@@ -9,9 +9,9 @@
   "model": "claude-haiku-4-5",
   "trial": 5,
   "started_at": "2026-10-29T07:02:21.890413+00:00",
-  "status": "failed",
-  "failure_kind": "agent_error",
-  "error": "Cancelled",
+  "status": "completed",
+  "failure_kind": null,
+  "error": null,
   "wall_duration_s": 186.8540244102478,
   "cost_usd": 0.317257,
   "labeled_by": "llm-cli:claude-sonnet-4-6",
@@ -20,7 +20,7 @@
   "provenance": {
     "repo_commit": "660a46a",
     "repo_dirty": true,
-    "protocol_sha256": "1207541659d54bb784868acfa0cd7cfc15b518a79ae757a495d2b7a9e1c6da20",
+    "protocol_sha256": "d4def4dc1e4a78d61f3f9e988cc7d7b6e5112dbba03a0307bebb83fe46feede7",
     "manifest_sha256": "0b1e1f548a258ea39ea73747cbff0bc171492e69c8ec3b3f60b23089dfc70f2c",
     "target_reference": "vulnshop @ simulatorwebbing 2b04039 (14 vulns, 8 controls); app on 127.0.0.1:5050"
   },
@@ -30,11 +30,11 @@
     "targets": [
       "http://127.0.0.1:5050"
     ],
-    "status": "failed",
+    "status": "completed",
     "engine": "direct",
     "cost_usd": 0.317257,
     "wall_duration_s": 183.011428,
-    "error": "Cancelled",
+    "error": null,
     "findings": [
       {
         "id": "hb-7b417a689f1f15a0:observation",

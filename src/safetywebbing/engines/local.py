@@ -130,7 +130,10 @@ class LocalAgentEngine:
     agent_cmd: list[str] | None = None  # explicit override; skips discovery
     backend: str = "claude"
     model: str | None = None
-    max_decisions: int = 20
+    # Doubled from 20: the vendored agents' own per-episode turn budgets were widened for the
+    # same reason (agent_image/pentestgpt_agent/trial.py), and raising only the inner turn
+    # budgets without the outer decision count would just move the ceiling, not remove it.
+    max_decisions: int = 40
     timeout_s: float = 600.0
     # Start the agent in a fresh, empty temp directory instead of the repo root. By default
     # the agent's cwd is the repo, so a model that wanders reads src/ (README: a Sonnet run

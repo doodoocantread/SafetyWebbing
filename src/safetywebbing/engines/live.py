@@ -95,7 +95,8 @@ class LiveAgentEngine:
     claude_creds_dir: Path = Path.home() / ".claude"
     backend: str = "claude"
     model: str | None = None
-    max_decisions: int = 20
+    # Doubled from 20: see the matching comment in engines/local.py (LocalAgentEngine).
+    max_decisions: int = 40
     timeout_s: float = 600.0
     # How the agent in `image` authenticates to an LLM (config.Agent.auth):
     #   "claude_oauth" — mount an ephemeral copy of the host's Claude Code creds.

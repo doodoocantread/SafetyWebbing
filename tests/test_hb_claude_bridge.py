@@ -81,6 +81,48 @@ def test_render_transcript_handles_dicts_and_message_objects():
     assert "[tool result for call_1]\nHTTP/1.1 200" in transcript
 
 
+def test_render_transcript_bounds_long_history_keeping_anchor_and_recent_turns():
+    messages = [{"role": "user", "content": "goal: scan http://x, 40 rounds max"}]
+    for i in range(50):
+        messages.append({"role": "assistant", "content": f"round {i}: " + "x" * 2_000})
+    _, transcript = cb.render_transcript(messages, max_chars=20_000)
+    assert "goal: scan http://x" in transcript  # anchor turn survives
+    assert "round 49" in transcript  # most recent turn survives
+    assert "round 0:" not in transcript  # oldest middle turns were dropped
+    assert "omitted to stay under the prompt size limit" in transcript
+    assert len(transcript) <= 20_000 + 2_000  # anchor + marker + kept turns, not unbounded
+
+
+def test_render_transcript_leaves_short_history_untouched():
+    messages = [{"role": "system", "content": "SYS"}, {"role": "user", "content": "go"}]
+    system, transcript = cb.render_transcript(messages, max_chars=20_000)
+    assert system == "SYS"
+    assert transcript == "[user]\ngo"
+    assert "omitted" not in transcript
+
+
+def test_transcript_char_budget_env_override(monkeypatch):
+    monkeypatch.setenv(cb._TRANSCRIPT_CHAR_BUDGET_ENV, "5000")
+    assert cb._transcript_char_budget() == 5000
+    monkeypatch.setenv(cb._TRANSCRIPT_CHAR_BUDGET_ENV, "not-a-number")
+    assert cb._transcript_char_budget() == cb.DEFAULT_TRANSCRIPT_CHAR_BUDGET
+    monkeypatch.delenv(cb._TRANSCRIPT_CHAR_BUDGET_ENV)
+    assert cb._transcript_char_budget() == cb.DEFAULT_TRANSCRIPT_CHAR_BUDGET
+
+
+def test_complete_uses_bounded_transcript_so_cli_never_sees_unbounded_prompt(fake_claude, monkeypatch):
+    queue, calls = fake_claude
+    monkeypatch.setenv(cb._TRANSCRIPT_CHAR_BUDGET_ENV, "10000")
+    queue(envelope("ok", [{"name": "EndRun", "arguments": {}}]))
+    messages = [{"role": "user", "content": "goal: anchor"}]
+    for i in range(50):
+        messages.append({"role": "assistant", "content": f"round {i}: " + "x" * 1_000})
+    cb.complete(messages, TOOLS, None, model="m")
+    (call,) = calls()
+    assert len(call["stdin"]) < 15_000
+    assert "goal: anchor" in call["stdin"]
+
+
 def test_schema_restricts_tool_names():
     schema = cb.build_schema(["A", "B"])
     items = schema["properties"]["tool_calls"]["items"]["properties"]

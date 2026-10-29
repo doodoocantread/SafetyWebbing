@@ -100,30 +100,78 @@ def _call_parts(tool_call: Any) -> tuple[str, str, str]:
     )
 
 
-def render_transcript(messages: list[Any]) -> tuple[str, str]:
+# hackingBuddy appends to `messages` every round and never trims it itself: its own
+# `llm.context_size` is advisory, keyed to a real provider tokenizer, so it does not shrink
+# what we render here for a model name ("claude-code/...") it does not recognize. Left
+# unbounded, the rendered transcript eventually outgrows the CLI's own prompt-size limit and
+# the whole run dies outright (`ClaudeBridgeError: claude failed (exit 1): Prompt is too
+# long`, bench-hb-js-haiku45-2) — raising `api_timeout` so runs live longer only made this
+# more likely to be reached, not less. Bound what we render ourselves, independent of
+# hackingBuddy's own counting.
+DEFAULT_TRANSCRIPT_CHAR_BUDGET = 120_000
+_TRANSCRIPT_CHAR_BUDGET_ENV = "SAFETYWEBBING_HB_TRANSCRIPT_CHAR_BUDGET"
+
+
+def _transcript_char_budget() -> int:
+    raw = os.environ.get(_TRANSCRIPT_CHAR_BUDGET_ENV)
+    if raw is None:
+        return DEFAULT_TRANSCRIPT_CHAR_BUDGET
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_TRANSCRIPT_CHAR_BUDGET
+    return value if value > 0 else DEFAULT_TRANSCRIPT_CHAR_BUDGET
+
+
+def _bounded_transcript(turns: list[str], max_chars: int) -> str:
+    """Keep the oldest turn (usually the run's goal/setup) and as many of the most recent
+    turns as fit in ``max_chars``, dropping a contiguous block of older ones in between and
+    saying so — rather than silently truncating mid-line or growing without bound."""
+    full = "\n\n".join(turns)
+    if len(full) <= max_chars or len(turns) <= 2:
+        return full
+    anchor = turns[0]
+    kept: list[str] = []
+    used = len(anchor)
+    for turn in reversed(turns[1:]):
+        if used + len(turn) + 2 > max_chars:
+            break
+        kept.append(turn)
+        used += len(turn) + 2
+    kept.reverse()
+    dropped = len(turns) - 1 - len(kept)
+    if dropped <= 0:
+        return full
+    marker = f"[... {dropped} earlier turn(s) omitted to stay under the prompt size limit ...]"
+    return "\n\n".join([anchor, marker, *kept])
+
+
+def render_transcript(messages: list[Any], *, max_chars: int | None = None) -> tuple[str, str]:
     """Split a chat history into ``(system_text, transcript_text)``.
 
     Assistant tool calls and tool results are written out with their call ids so Claude
-    can pair a result with the call that produced it.
+    can pair a result with the call that produced it. ``transcript_text`` is bounded (see
+    ``_bounded_transcript``); pass ``max_chars`` to override the default/env budget.
     """
     system: list[str] = []
-    lines: list[str] = []
+    turns: list[str] = []
     for m in messages:
         role = _get(m, "role", "user")
         text = _content_text(_get(m, "content"))
         if role == "system":
             system.append(text)
         elif role == "tool":
-            lines.append(f"[tool result for {_get(m, 'tool_call_id', '?')}]\n{text}")
+            turns.append(f"[tool result for {_get(m, 'tool_call_id', '?')}]\n{text}")
         elif role == "assistant":
             parts = [f"[assistant]\n{text}" if text else "[assistant]"]
             for tc in _get(m, "tool_calls") or []:
                 call_id, name, args = _call_parts(tc)
                 parts.append(f"[assistant called tool {name} (id {call_id})] {args}")
-            lines.append("\n".join(parts))
+            turns.append("\n".join(parts))
         else:
-            lines.append(f"[{role}]\n{text}")
-    return "\n\n".join(system), "\n\n".join(lines)
+            turns.append(f"[{role}]\n{text}")
+    budget = _transcript_char_budget() if max_chars is None else max_chars
+    return "\n\n".join(system), _bounded_transcript(turns, budget)
 
 
 def tools_prompt(tools: list[dict[str, Any]]) -> str:

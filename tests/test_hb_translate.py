@@ -123,6 +123,55 @@ def test_status_mapping(run_state, root_status, expected):
         assert summary["error"] is None
 
 
+def _run_spans_with_endrun(*, run_state="Cancelled", root_status="ERROR"):
+    """Same shape as _run_spans but the agent also invokes hackingBuddyGPT's EndRun
+    capability — the in-log signal of a voluntary stop vs an external kill."""
+    spans = _run_spans(run_state=run_state, root_status=root_status)
+    chat2 = _span("c2", "root", {
+        _OP: "chat",
+        _OUT_MSGS: _assistant("No further leads; ending the run."),
+        _MODEL: "anthropic/claude-3-5-sonnet", _COST: 0.001,
+    })
+    endrun = _span("e2", "c2", {
+        _OP: "execute_tool", _TOOL_NAME: "EndRun", _TOOL_CALL_ID: "call_end",
+        _TOOL_ARGS: "{}", _TOOL_RESULT: "Run has been aborted",
+    })
+    # Keep the final root span last (translate reads the last root for the run state).
+    return spans[:-1] + [chat2, endrun, spans[-1]]
+
+
+def test_agent_endrun_on_cancelled_is_completed():
+    """A run the agent ended itself (EndRun) reached its own terminal state — its data is
+    complete, so it is `completed`, not the `failed` that an external kill with the same
+    "Cancelled" state produces (PROTOCOL.md §9.2)."""
+    summary, _ = translate(
+        _run_spans_with_endrun(run_state="Cancelled", root_status="ERROR"),
+        run_id="r", goal="g", target="http://localhost",
+    )
+    assert summary["status"] == "completed"
+    assert summary["error"] is None
+    assert summary["hackingbuddy_run_state"] == "Cancelled"  # raw outcome still preserved
+
+
+def test_cancelled_without_endrun_stays_failed():
+    """Same "Cancelled" state but no EndRun span (killed from outside) stays inconclusive."""
+    summary, _ = translate(
+        _run_spans(run_state="Cancelled", root_status="ERROR"),
+        run_id="r", goal="g", target="http://localhost",
+    )
+    assert summary["status"] == "failed"
+    assert summary["error"] == "Cancelled"
+
+
+def test_endrun_does_not_mask_a_real_crash():
+    """An EndRun span never rescues a genuine exception state — that stays `error`."""
+    summary, _ = translate(
+        _run_spans_with_endrun(run_state="exception occurred", root_status="ERROR"),
+        run_id="r", goal="g", target="http://localhost",
+    )
+    assert summary["status"] == "error"
+
+
 def test_no_tool_calls_yields_empty_observations():
     root = _span("root", None, {_RUN_STATE: "Reached maximum rounds (1)"}, status="ERROR",
                  end="2026-10-24T10:00:05")

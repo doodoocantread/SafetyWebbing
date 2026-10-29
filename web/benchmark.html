@@ -87,11 +87,11 @@ function CellsTable({cells}) {
   const showFp = cells.some(c => c.false_positive);
   return <div className="tbl-wrap"><table className="tbl">
     <thead><tr>
-      <th>Target</th><th>Agent</th><th>{tr("Loại scan", "Scan")}</th><th>Model</th>
+      <th>{tr("Target · loại scan", "Target · scan")}</th><th>Agent · model</th>
       <th className="num">{tr("Run hợp lệ", "Valid runs")}</th>
-      <th>{tr("Khai thác (oracle xác nhận)", "Exploited (oracle-confirmed)")}</th>
-      <th>{tr("Báo cáo đúng / đã khai thác", "Correctly reported / exploited")}</th>
-      {showFp && <th>{tr("Báo nhầm trên đối chứng", "False positive on control")}</th>}
+      <th title={tr("Oracle của target xác nhận khai thác", "The target's own oracle confirmed the exploit")}>{tr("Khai thác", "Exploited")}</th>
+      <th title={tr("Báo cáo có finding khớp, trên số mục đã khai thác", "Reports with a matching finding, out of exploited items")}>{tr("Báo cáo đúng", "Reported")}</th>
+      {showFp && <th>{tr("Báo nhầm", "False positive")}</th>}
       <th>{tr("Phán quyết", "Verdict")}</th><th>{tr("Ghi chú", "Notes")}</th>
     </tr></thead>
     <tbody>{cells.map((c, i) => {
@@ -101,10 +101,8 @@ function CellsTable({cells}) {
       Object.entries(c.failure_kinds || {}).forEach(([k, n]) => notes.push(`${n}× ${FAILURE[k] || k}`));
       if (c.t1_min != null) notes.push(tr(`ngưỡng khai thác ≥ ${pct(c.t1_min)}`, `exploit threshold ≥ ${pct(c.t1_min)}`));
       return <tr key={i}>
-        <td>{targetName(c.target, c.config)}</td>
-        <td className="mono" title={c.agent}>{agentShort(c.agent)}</td>
-        <td className="mono">{c.scan_type}</td>
-        <td className="mono" title={c.model}>{modelShort(c.model)}</td>
+        <td className="wrapcell">{targetName(c.target, c.config)}<div className="hint mono" style={{margin: 0}}>{c.scan_type}</div></td>
+        <td className="wrapcell"><span className="mono" title={c.agent}>{agentShort(c.agent)}</span><div className="hint mono" style={{margin: 0}} title={c.model}>{modelShort(c.model)}</div></td>
         <td className="num">{c.valid}/{c.runs}</td>
         <td>{c.scored ? <Rate r={c.exploit} /> : <span className="muted">—</span>}</td>
         <td>{c.scored ? <Rate r={c.fidelity} /> : <span className="muted">—</span>}</td>
@@ -129,6 +127,23 @@ function symbolFor(trial, vuln) {
 function Matrix({manifest, trials}) {
   const runs = trials.filter(t => t.target === manifest.target && t.config === manifest.config && t.scored);
   if (!runs.length) return null;
+  // Only list weaknesses the recorded runs could have been asked about: a `sqli`-only set of runs
+  // makes every XSS/auth row a wall of "–". A `general` run asks about everything.
+  const askedTypes = new Set(runs.map(t => t.scan_type));
+  const covered = v => askedTypes.has("general") || askedTypes.has(v.scan_type);
+  const vulns = manifest.vulns.filter(covered);
+  const hidden = manifest.vulns.length - vulns.length;
+  // One column per agent × model, one small slot per trial inside it: a column per run made the
+  // VulnShop matrix 13 columns wide and forced a horizontal scroll.
+  const groups = [];
+  runs.forEach(t => {
+    const k = t.agent + "|" + t.model;
+    let g = groups.find(x => x.k === k);
+    if (!g) { g = {k, agent: t.agent, model: t.model, runs: []}; groups.push(g); }
+    g.runs.push(t);
+  });
+  groups.forEach(g => g.runs.sort((a, b) => a.trial - b.trial));
+  const slot = {display: "inline-block", minWidth: 34, textAlign: "center"};
   return <div className="card">
     <div className="card-h"><p className="card-title">{tr("Ma trận lỗ hổng", "Weakness matrix")} · {targetName(manifest.target, manifest.config)}</p></div>
     <div className="card-b">
@@ -140,9 +155,10 @@ function Matrix({manifest, trials}) {
       <div className="tbl-wrap"><table className="tbl">
         <thead><tr>
           <th>{tr("Lỗ hổng", "Weakness")}</th><th>CWE</th><th>Scan</th>
-          {runs.map(t => <th key={t.run_id} title={t.run_id} style={{textAlign: "center"}}>{agentShort(t.agent)}<br/>{modelShort(t.model)}<br/><span className="mono">{t.scan_type} · #{t.trial}</span></th>)}
+          {groups.map(g => <th key={g.k} style={{textAlign: "center"}}>{agentShort(g.agent)}<br/>{modelShort(g.model)}
+            <div className="mono" style={{marginTop: 3}}>{g.runs.map(t => <span key={t.run_id} style={slot} title={t.run_id}>#{t.trial}</span>)}</div></th>)}
         </tr></thead>
-        <tbody>{manifest.vulns.map(v => {
+        <tbody>{vulns.map(v => {
           const muted = v.scoring !== "scored";
           return <tr key={v.id} style={muted ? {opacity: .6} : undefined}>
             <td className="wrapcell">{v.title}
@@ -150,11 +166,13 @@ function Matrix({manifest, trials}) {
               {v.requires_login && <div className="hint" style={{margin: 0}}>{tr("Cần đăng nhập trước", "Needs a login first")}</div>}</td>
             <td className="mono">{v.cwe}</td>
             <td className="mono">{v.scan_type}</td>
-            {runs.map(t => { const s = symbolFor(t, v);
-              return <td key={t.run_id} style={{textAlign: "center"}}><Pill kind={s.kind} title={s.title}>{s.sym}</Pill></td>; })}
+            {groups.map(g => <td key={g.k} style={{textAlign: "center", whiteSpace: "nowrap"}}>
+              {g.runs.map(t => { const s = symbolFor(t, v);
+                return <span key={t.run_id} style={slot}><Pill kind={s.kind} title={`${t.run_id} · ${t.scan_type} — ${s.title}`}>{s.sym}</Pill></span>; })}</td>)}
           </tr>;
         })}</tbody>
       </table></div>
+      {hidden > 0 && <div className="hint">{tr(`Đã ẩn ${hidden} mục mà loại scan của các run này không hỏi tới.`, `${hidden} weaknesses hidden: the scan types of these runs do not ask about them.`)}</div>}
       <div className="hint">{tr("Phiên bản ground truth: ", "Ground-truth build: ")}<span className="mono">{manifest.reference}</span></div>
     </div>
   </div>;
@@ -170,7 +188,7 @@ function RunsTable({trials}) {
         <th className="num">{tr("Thời gian", "Duration")}</th><th className="num">{tr("Chi phí", "Cost")}</th>
         <th>{tr("Khai thác", "Exploited")}</th><th className="num">{tr("Finding", "Findings")}</th><th>{tr("Xuất xứ", "Provenance")}</th>
       </tr></thead>
-      <tbody>{trials.map(t => {
+      <tbody>{[...trials].reverse().map(t => {
         const asked = t.outcomes.length, hit = t.outcomes.filter(o => o.exploited).length;
         const p = t.provenance;
         return <tr key={t.run_id}>
@@ -186,14 +204,14 @@ function RunsTable({trials}) {
           <td className="num">${t.cost_usd.toFixed(2)}</td>
           <td className="wrapcell">
             {t.scored ? (t.inconclusive ? <span className="muted">{tr("không kết luận", "inconclusive")}</span> : <b>{hit}/{asked}</b>) : <span className="muted">{tr("chưa chấm", "not scored")}</span>}
-            {t.oracle_off_manifest.length > 0 && <div className="hint" style={{margin: "4px 0 0"}}>
-              {tr("Giải được challenge ngoài danh sách: ", "Solved challenges outside the list: ")}<span className="mono">{t.oracle_off_manifest.join(", ")}</span></div>}
+            {t.oracle_off_manifest.length > 0 && <details><summary>{tr(`+${t.oracle_off_manifest.length} challenge ngoài danh sách`, `+${t.oracle_off_manifest.length} challenges outside the list`)}</summary>
+              <span className="mono wrapcell">{t.oracle_off_manifest.join(", ")}</span></details>}
             {t.leak_flags.length > 0 && <details><summary>⚠ {t.leak_flags.length} {tr("cảnh báo rò rỉ (chưa duyệt)", "leak-detector hits (unreviewed)")}</summary>
               <ul>{t.leak_flags.map((f, i) => <li key={i} className="mono wrapcell">{f}</li>)}</ul></details>}
           </td>
           <td className="num">{t.findings_total}{t.unmatched > 0 && <div className="hint" style={{margin: 0}}>{t.unmatched} {tr("chưa xác minh", "unverified")}</div>}</td>
           <td className="wrapcell"><span className="mono">{short(p.repo_commit)}</span>{p.repo_dirty && " *"}
-            <div className="hint" style={{margin: 0}}>{p.target_reference}</div>
+            <div className="hint" style={{margin: 0}} title={p.target_reference}>{(p.target_reference || "").split(" (")[0]}</div>
             {p.inputs_changed && <Pill kind="bad" title={tr("Giao thức hoặc ground truth đã đổi sau khi run này được ghi", "The protocol or ground truth changed after this run was recorded")}>{tr("kết quả cũ", "stale")}</Pill>}
           </td>
         </tr>;
@@ -230,7 +248,8 @@ function Method({th}) {
         <li><b>{tr("Vì sao dùng model 4.x", "Why the 4.x models")}</b><span>{tr("Dòng model 5/5.5 bị bộ lọc an toàn chặn thẳng prompt pentest, làm run failed vì lý do không liên quan chất lượng. Benchmark này chỉ chạy opus-4-8 / sonnet-4-6 / haiku-4-5; không run nào bị chặn trong lần chạy lại. Các thất bại còn lại là lỗi agent, không phải model.", "The 5/5.5 models' safety filter blocks a pentest prompt outright, failing runs for reasons unrelated to quality. This benchmark runs only opus-4-8 / sonnet-4-6 / haiku-4-5; none was blocked in the re-run. The remaining failures are agent errors, not the model.")}</span></li>
         <li><b>{tr("Oracle đo khai thác sâu", "The oracle measures deep exploitation")}</b><span>{tr("Mục SQLi của ô tìm kiếm chỉ tính khi agent lấy ra dữ liệu, không chỉ chứng minh injectable. Điểm 0 ở đó không có nghĩa là không có lỗ hổng.", "The search-box SQLi entries only count when the agent extracts data, not merely proves injectability. A zero there does not mean the flaw is absent.")}</span></li>
         <li><b>{tr("Finding chỉ là đoạn trích", "Findings are excerpts")}</b><span>{tr("Finding giữ đoạn trích do agent chọn, không phải response thô, nên bằng chứng quyết định có thể bị labeler hoặc oracle trace_match bỏ sót.", "A finding keeps an excerpt the agent chose, not the raw response, so decisive evidence can be missed by the labeler or the trace_match oracle.")}</span></li>
-        <li><b>{tr("Không so sánh engine", "No engine comparison")}</b><span>{tr("Cả PentestGPT và hackingBuddyGPT (phiên Claude Code) đều có run thật, nhưng khác ngân sách, đường LLM và chi phí, nên không có kết luận engine nào tốt hơn. Mỗi ô chỉ một run.", "Both PentestGPT and hackingBuddyGPT (Claude Code session) have real runs, but with different budgets, LLM paths and cost, so no engine is claimed better. Each cell has only one run.")}</span></li>
+        <li><b>{tr("Không so sánh engine", "No engine comparison")}</b><span>{tr("Cả PentestGPT và hackingBuddyGPT (phiên Claude Code) đều có run thật, nhưng khác ngân sách, đường LLM và chi phí, nên không có kết luận engine nào tốt hơn. Mỗi ô chỉ có vài run.", "Both PentestGPT and hackingBuddyGPT (Claude Code session) have real runs, but with different budgets, LLM paths and cost, so no engine is claimed better. Each cell has only a few runs.")}</span></li>
+        <li><b>{tr("Run chạy bằng các phiên bản agent khác nhau", "Runs used different agent versions")}</b><span>{tr("Agent được sửa qua từng đợt (PROTOCOL.md mục 10) và các run cũ không được chạy lại. Một ô trộn run trước và sau một bản sửa, nên không đọc được thành \"trước/sau\" trực tiếp. Từ v0.1.13, hackingBuddy tự gọi EndRun được tính là hoàn tất; chỉ các run mới nhất dùng quy tắc này.", "The agents were fixed in rounds (PROTOCOL.md section 10) and older runs were not re-run. A cell can mix runs from before and after a fix, so it cannot be read as a direct before/after. Since v0.1.13 a hackingBuddy run that calls EndRun counts as completed; only the newest runs use that rule.")}</span></li>
       </ul></div>
     </div>
   </div>;

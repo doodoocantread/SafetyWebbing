@@ -93,7 +93,7 @@ Open **New scan** and click the saved run `sqli-claude-03` under **Demo — save
 
 ## A tour of the app
 
-The menu has six pages. The screenshots below use the English interface and the bundled sample run.
+The menu has seven pages. The screenshots below use the English interface and the bundled sample run.
 
 ### Overview (`/`)
 
@@ -121,15 +121,17 @@ Findings are de-duplicated across scans. The fingerprint is target + CWE (or cla
 
 ### Benchmark (`/benchmark`)
 
-What SafetyWebbing finds on applications whose weaknesses are known, and where it goes wrong. Each recorded run is scored against a ground-truth manifest (`benchmark/targets/`) in two independent ways: whether the target's own oracle confirmed the exploit, and whether the report carries a matching finding. Rates are shown as counts with a 95% Wilson interval. A run that did not complete is listed as **inconclusive** with its cause (provider safety filter or agent error), never counted as "clean". The page only reads the committed files in `benchmark/results/`; it cannot start a run. The method, thresholds and known limits are in [`benchmark/PROTOCOL.md`](benchmark/PROTOCOL.md). Results so far are pilot (smoke) data and are labelled as such.
+What SafetyWebbing finds on applications whose weaknesses are known, and where it goes wrong. Each recorded run is scored against a ground-truth manifest (`benchmark/targets/`) in two independent ways: whether the target's own oracle confirmed the exploit, and whether the report carries a matching finding. Rates are shown as counts with a 95% Wilson interval. A run that did not complete is listed as **inconclusive** with its cause (provider safety filter or agent error), never counted as "clean". The page only reads the committed files in `benchmark/results/`; it cannot start a run. The method, thresholds and known limits are in [`benchmark/PROTOCOL.md`](benchmark/PROTOCOL.md). Results so far are pilot (smoke) data and are labelled as such: 20 recorded runs, only 3 of them valid, and no cell has enough valid runs (70%) to show a rate.
 
 Two targets are wired up: **OWASP Juice Shop** (oracle: its own `/api/Challenges` solved-state) and **VulnShop** (the [SimulatorWebbing](https://github.com/doodoocantread/SimulatorWebbing) testbed, which confirms each exploit server-side by writing the vuln id to a file the runner snapshots). Both are scored with the `opus-4-8 / sonnet-4-6 / haiku-4-5` model set, after the 5.x models were found to be refused by the provider's real-time cyber safeguards and so could not be measured at all.
 
 ![Benchmark page: per-cell results across both targets and the Juice Shop weakness matrix](docs/screenshots/07-benchmark.png)
 
-The VulnShop weakness matrix below shows every run as its own column (`#1`/`#2`/`#3` = trial). Oracle-confirmed exploits are the only green ticks: PentestGPT · Sonnet exploited the login-bypass SQL injection and the reflected XSS in trial 1 and nothing in trial 2; hackingBuddy · Sonnet exploited the login bypass in trial 2; hackingBuddy · Haiku exploited a stack-trace disclosure in trial 3, after a round of fixes widened the agents' turn budgets and hackingBuddy's per-call timeout, and the login-bypass SQL injection in trial 6, after a later fix bounded the transcript sent to the CLI (`benchmark/PROTOCOL.md` §9.2 — root-caused why every pilot run was inconclusive and what was changed). All were verified server-side. `…` marks an inconclusive run, which the page never reads as "clean". Until v0.1.13 every run was inconclusive by the page's own definition; the three cloud retest trials (`vs-hb-vulnshop-haiku45-4/5/6`) are the first valid runs, after a fix taught the translator that an agent calling `EndRun` ended the run on its own terms rather than being cut off. Even so their cell still shows no rate: only 3 of its 6 runs are valid, under the 70% the protocol requires. n is small and per-cell, so this says nothing about stability or about which agent or model is better; the point of this pilot is to measure the measuring method, not to rank models.
+The weakness matrices have one column per agent and model, with one small slot per trial (`#1`, `#2`, …) inside it, and list only the weaknesses that the recorded scan types ask about. Oracle-confirmed exploits are the only green ticks. So far: on Juice Shop, PentestGPT · Opus and hackingBuddy · Sonnet exploited the login-bypass SQL injection; on VulnShop, PentestGPT · Sonnet exploited the login bypass and the reflected XSS in trial 1 and nothing in trial 2, hackingBuddy · Sonnet exploited the login bypass in trial 2, and hackingBuddy · Haiku exploited a stack-trace disclosure in trial 3 and the default-admin login in trial 6. All were verified server-side. `…` marks an inconclusive run, which the page never reads as "clean".
 
-![VulnShop weakness matrix: 13 HTTP-reachable vulnerabilities and 8 patched-twin controls, scored per agent and model](docs/screenshots/08-benchmark-vulnshop.png)
+Until v0.1.13 every run was inconclusive by the page's own definition. The three newest runs (`vs-hb-vulnshop-haiku45-4/5/6`, hackingBuddy · Haiku on VulnShop, re-run on a cloud localhost) are the first valid ones, after a fix taught the translator that an agent calling `EndRun` ended the run on its own terms rather than being cut off. Their cell still shows no rate, because only 3 of its 6 runs are valid. PentestGPT and Juice Shop were not re-run after the v0.1.12 fixes (they need the private `unified-agent` dependency and Docker), so those fixes are still unmeasured. Runs come from different agent versions and older ones were not re-run (`benchmark/PROTOCOL.md` §9.2 and §10 list what changed and when), and n is small per cell, so none of this says anything about stability or about which agent or model is better: the point of this pilot is to measure the measuring method, not to rank models.
+
+![VulnShop weakness matrix: HTTP-reachable vulnerabilities and patched-twin controls, one column per agent and model, one slot per trial](docs/screenshots/08-benchmark-vulnshop.png)
 
 ### Method & Contributions (`/about`)
 
@@ -331,6 +333,7 @@ SafetyWebbing/
 │   ├── adapter.py              summary.json + traces/ -> findings (facts, no LLM)
 │   ├── labeling.py             Heuristic labeler + labeler interface
 │   ├── labeling_llm.py         Optional Anthropic labeler (lazy import, falls back)
+│   ├── benchmark/              Loader, oracle scorer and aggregation behind /benchmark
 │   ├── owasp.py                Static CWE -> OWASP Top 10 table
 │   ├── pipeline.py · report.py Build the report; render Markdown
 │   ├── history.py · insights.py  Scan history; cross-scan de-duplication and triage
@@ -338,6 +341,7 @@ SafetyWebbing/
 │   └── engines/                live (Docker), local (direct), replay (demo)
 ├── agent_image/                Docker image: vendored PentestGPT agent + unified-agent
 ├── agent_image_hackingbuddy/   Docker image: hackingBuddyGPT web use-case + wrapper
+├── benchmark/                  PROTOCOL.md, ground-truth manifests (targets/), recorded runs (results/)
 ├── web/                        UI: React 18 + Babel via CDN, no build step
 ├── samples/runs/               Bundled sample run used by demo/replay
 ├── runs/                       Scan output (gitignored), bind-mounted from containers
@@ -351,14 +355,16 @@ For file-by-file detail, see [`CODEMAP.md`](CODEMAP.md). For the design decision
 
 ```bash
 uv sync --extra dev
-uv run pytest            # 217 tests, no Docker or network needed
+uv run pytest            # ~460 tests, no Docker or network needed
 uv run ruff check .      # lint
 uv run uvicorn safetywebbing.api:app --port 8001 --reload   # dev server with auto-reload
 ```
 
-The safety rules, adapter, labeling, history, triage, direct mode and the hackingBuddyGPT translation layer are all covered by unit tests.
+The safety rules, adapter, labeling, history, triage, direct mode, the hackingBuddyGPT translation layer and the benchmark scorer and result files are all covered by unit tests.
 
 ## Experiment log: model comparison
+
+> **Historical.** This is a one-off manual comparison from 2026-10-15, kept for what it showed about `direct` mode. The reproducible, scored comparison is now the [Benchmark](#benchmark-benchmark) and `benchmark/PROTOCOL.md`; it uses the 4.x models because the 5.x line is refused outright by the provider's safety filter.
 
 Three models were tried in `direct` mode on 2026-10-15, with the same SQL-injection goal. The targets differed, as described in each row.
 
@@ -386,7 +392,7 @@ Takeaway: `direct` mode behaves as designed (no container, can read everything o
   - **DeepSeek**
   - other providers, for example Gemini, Mistral, and local models served through Ollama
 - **A provider-neutral labeler.** Let the report labeler use any supported provider, not only Anthropic, and keep the offline heuristic as the fallback.
-- **Compare models side by side.** Build on the [experiment log](#experiment-log-model-comparison) so the same scan can be run with several models and the results compared.
+- **Compare models side by side.** Build on the [Benchmark](#benchmark-benchmark) so the same scan can be run with several models and the results compared. Today every cell has only a few runs, so no model or agent is claimed better.
 
 These are goals, not commitments. Any new provider has to keep the safety invariants in [How it stays safe](#how-it-stays-safe), including passing API keys by environment variable name and never writing them to disk or `audit.log`.
 

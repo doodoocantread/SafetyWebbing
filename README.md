@@ -68,6 +68,8 @@ Other limits: at most **2 scans run in parallel**, each scan has a timeout (30 t
 
 ## Quick start
 
+> **New here?** [`SETUP_AND_OVERVIEW.md`](SETUP_AND_OVERVIEW.md) is a plain-language onboarding guide that walks through setup, how Claude authentication works, running without Docker, and a tour of every page — a gentler starting point than this reference.
+
 ### Prerequisites
 
 - Python 3.12 or newer and [`uv`](https://docs.astral.sh/uv/)

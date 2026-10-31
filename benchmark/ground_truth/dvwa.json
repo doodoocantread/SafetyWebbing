@@ -1,0 +1,88 @@
+{
+  "target": "dvwa",
+  "origin": "http://localhost:8081",
+  "description": "Damn Vulnerable Web Application. Vulnerabilities are stable per security level; benchmark at the 'low' level.",
+  "security_level": "low",
+  "expected": [
+    {
+      "id": "dvwa-sqli",
+      "scan_type": "sqli",
+      "vuln_class": "SQL Injection",
+      "cwe": "CWE-89",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/vulnerabilities/sqli/",
+      "severity": "high",
+      "notes": "Classic error-based SQLi via the id parameter."
+    },
+    {
+      "id": "dvwa-sqli-blind",
+      "scan_type": "sqli",
+      "vuln_class": "SQL Injection",
+      "cwe": "CWE-89",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/vulnerabilities/sqli_blind/",
+      "severity": "high",
+      "notes": "Blind (boolean/time) SQLi via the id parameter."
+    },
+    {
+      "id": "dvwa-xss-reflected",
+      "scan_type": "xss",
+      "vuln_class": "Cross-Site Scripting",
+      "cwe": "CWE-79",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/vulnerabilities/xss_r/",
+      "severity": "medium",
+      "notes": "Reflected XSS via the name parameter."
+    },
+    {
+      "id": "dvwa-xss-stored",
+      "scan_type": "xss",
+      "vuln_class": "Cross-Site Scripting",
+      "cwe": "CWE-79",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/vulnerabilities/xss_s/",
+      "severity": "medium",
+      "notes": "Stored XSS via the guestbook message field."
+    },
+    {
+      "id": "dvwa-xss-dom",
+      "scan_type": "xss",
+      "vuln_class": "Cross-Site Scripting",
+      "cwe": "CWE-79",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/vulnerabilities/xss_d/",
+      "severity": "medium",
+      "notes": "DOM-based XSS via the default URL parameter."
+    },
+    {
+      "id": "dvwa-brute-force",
+      "scan_type": "auth",
+      "vuln_class": "Weak Authentication",
+      "cwe": "CWE-307",
+      "owasp": "A07:2021 - Identification and Authentication Failures",
+      "endpoint": "/vulnerabilities/brute/",
+      "severity": "high",
+      "notes": "Login form with no brute-force protection."
+    },
+    {
+      "id": "dvwa-command-injection",
+      "scan_type": "general",
+      "vuln_class": "Command Injection",
+      "cwe": "CWE-78",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/vulnerabilities/exec/",
+      "severity": "critical",
+      "notes": "OS command injection via the ping/ip parameter."
+    },
+    {
+      "id": "dvwa-file-inclusion",
+      "scan_type": "general",
+      "vuln_class": "Path Traversal / File Inclusion",
+      "cwe": "CWE-22",
+      "owasp": "A01:2021 - Broken Access Control",
+      "endpoint": "/vulnerabilities/fi/",
+      "severity": "high",
+      "notes": "Local/remote file inclusion via the page parameter."
+    }
+  ]
+}

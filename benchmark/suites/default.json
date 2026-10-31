@@ -1,0 +1,10 @@
+{
+  "name": "default",
+  "description": "SafetyWebbing benchmark v1: 3 local targets x 3 scan types.",
+  "repeat": 3,
+  "cases": [
+    { "target": "juice-shop", "scan_types": ["sqli", "xss", "auth"] },
+    { "target": "dvwa", "scan_types": ["sqli", "xss", "auth", "general"] },
+    { "target": "bwapp", "scan_types": ["sqli", "xss", "auth"] }
+  ]
+}

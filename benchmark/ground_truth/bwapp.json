@@ -1,0 +1,68 @@
+{
+  "target": "bwapp",
+  "origin": "http://localhost:8082",
+  "description": "bWAPP (buggy web application). Set the security level to 'low' before benchmarking.",
+  "security_level": "low",
+  "expected": [
+    {
+      "id": "bwapp-sqli-get-search",
+      "scan_type": "sqli",
+      "vuln_class": "SQL Injection",
+      "cwe": "CWE-89",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/sqli_1.php",
+      "severity": "high",
+      "notes": "SQL injection via the title search parameter (GET)."
+    },
+    {
+      "id": "bwapp-sqli-login",
+      "scan_type": "sqli",
+      "vuln_class": "SQL Injection",
+      "cwe": "CWE-89",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/sqli_6.php",
+      "severity": "critical",
+      "notes": "Authentication bypass via SQLi in the login form (POST)."
+    },
+    {
+      "id": "bwapp-xss-reflected",
+      "scan_type": "xss",
+      "vuln_class": "Cross-Site Scripting",
+      "cwe": "CWE-79",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/xss_get.php",
+      "severity": "medium",
+      "notes": "Reflected XSS via firstname/lastname (GET)."
+    },
+    {
+      "id": "bwapp-xss-stored",
+      "scan_type": "xss",
+      "vuln_class": "Cross-Site Scripting",
+      "cwe": "CWE-79",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/xss_stored_1.php",
+      "severity": "medium",
+      "notes": "Stored XSS via the blog entry field."
+    },
+    {
+      "id": "bwapp-broken-auth-login",
+      "scan_type": "auth",
+      "vuln_class": "Broken Authentication",
+      "cwe": "CWE-287",
+      "owasp": "A07:2021 - Identification and Authentication Failures",
+      "endpoint": "/ba_insecure_login_1.php",
+      "severity": "high",
+      "notes": "Credentials submitted over an insecure login form."
+    },
+    {
+      "id": "bwapp-session-mgmt",
+      "scan_type": "auth",
+      "vuln_class": "Session Management",
+      "cwe": "CWE-384",
+      "owasp": "A07:2021 - Identification and Authentication Failures",
+      "endpoint": "/smgmt_sessionid_url.php",
+      "severity": "medium",
+      "notes": "Session id exposed in the URL / no rotation (session fixation)."
+    }
+  ]
+}

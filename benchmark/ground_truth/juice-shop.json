@@ -1,0 +1,77 @@
+{
+  "target": "juice-shop",
+  "origin": "http://localhost:3000",
+  "description": "OWASP Juice Shop — modern SPA/REST intentionally vulnerable app.",
+  "expected": [
+    {
+      "id": "js-sqli-login",
+      "scan_type": "sqli",
+      "vuln_class": "SQL Injection",
+      "cwe": "CWE-89",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/rest/user/login",
+      "severity": "critical",
+      "notes": "Login bypass with ' OR 1=1-- in the email field."
+    },
+    {
+      "id": "js-sqli-product-search",
+      "scan_type": "sqli",
+      "vuln_class": "SQL Injection",
+      "cwe": "CWE-89",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/rest/products/search",
+      "severity": "high",
+      "notes": "Union-based SQLi via the q= search parameter."
+    },
+    {
+      "id": "js-xss-dom-search",
+      "scan_type": "xss",
+      "vuln_class": "Cross-Site Scripting",
+      "cwe": "CWE-79",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "*",
+      "severity": "medium",
+      "notes": "DOM XSS via the search box (iframe/img payload reflected into the DOM)."
+    },
+    {
+      "id": "js-xss-stored-feedback",
+      "scan_type": "xss",
+      "vuln_class": "Cross-Site Scripting",
+      "cwe": "CWE-79",
+      "owasp": "A03:2021 - Injection",
+      "endpoint": "/api/Feedbacks",
+      "severity": "medium",
+      "notes": "Persisted/API XSS payload stored via feedback and rendered elsewhere."
+    },
+    {
+      "id": "js-idor-basket",
+      "scan_type": "auth",
+      "vuln_class": "Broken Access Control",
+      "cwe": "CWE-639",
+      "owasp": "A01:2021 - Broken Access Control",
+      "endpoint": "/rest/basket/:id",
+      "severity": "high",
+      "notes": "View another user's basket by changing the basket id (IDOR)."
+    },
+    {
+      "id": "js-access-admin",
+      "scan_type": "auth",
+      "vuln_class": "Broken Access Control",
+      "cwe": "CWE-862",
+      "owasp": "A01:2021 - Broken Access Control",
+      "endpoint": "/rest/admin/application-configuration",
+      "severity": "high",
+      "notes": "Admin-only functionality reachable without authorization."
+    },
+    {
+      "id": "js-weak-admin-password",
+      "scan_type": "auth",
+      "vuln_class": "Weak Authentication",
+      "cwe": "CWE-307",
+      "owasp": "A07:2021 - Identification and Authentication Failures",
+      "endpoint": "/rest/user/login",
+      "severity": "medium",
+      "notes": "Admin account has a guessable/bruteforceable password."
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "juice-shop-only",
+  "description": "No-Docker path: only Juice Shop (run via npm), agent in direct mode.",
+  "repeat": 3,
+  "cases": [
+    { "target": "juice-shop", "scan_types": ["sqli", "xss", "auth"] }
+  ]
+}

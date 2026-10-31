@@ -1,0 +1,38 @@
+# Intentionally vulnerable targets for the SafetyWebbing benchmark.
+#
+# SAFETY: every service is bound to 127.0.0.1 ONLY. These images contain real,
+# exploitable vulnerabilities on purpose — never expose them to a network, a
+# public interface, or a production host. Run on a test machine only.
+#
+# Host ports are chosen so all three can run at once (DVWA and bWAPP both listen
+# on :80 inside their container, so they get distinct host ports). The benchmark
+# ground-truth files use these exact origins:
+#   juice-shop -> http://localhost:3000
+#   dvwa       -> http://localhost:8081
+#   bwapp      -> http://localhost:8082
+#
+# Usage:
+#   docker compose -f benchmark/docker-compose.benchmark.yml up -d
+#   # wait until healthy (Juice Shop takes ~30s on first boot), then:
+#   python -m safetywebbing.benchmark run --suite benchmark/suites/default.json
+#   docker compose -f benchmark/docker-compose.benchmark.yml down
+
+services:
+  juice-shop:
+    # Pin a tag for reproducible runs (replace with the version you benchmark against).
+    image: bkimminich/juice-shop:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    ports:
+      - "127.0.0.1:8081:80"
+    restart: unless-stopped
+
+  bwapp:
+    image: raesene/bwapp:latest
+    ports:
+      - "127.0.0.1:8082:80"
+    restart: unless-stopped
